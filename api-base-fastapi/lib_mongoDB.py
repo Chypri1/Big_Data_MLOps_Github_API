@@ -1,5 +1,6 @@
 from pymongo import MongoClient
 from fastapi import FastAPI, UploadFile
+import io
 class BackForDatabase:
     # Informations de connexion à MongoDB
     """
@@ -54,21 +55,23 @@ class BackForDatabase:
         for document in collection.find():
             print(document)
 
-if __name__ == "__main__":
-    # Client API pour la base 
-    backForDatabase = BackForDatabase() # initialiser les valeurs si besoin plus tard
-    app = FastAPI()
 
+# Client API pour la base 
+app = FastAPI()
 
-    @app.get("/hello_world")
-    def hello_world():
-        return {"message":"hello world"}
+@app.get("/")
+def base():
+    return "hello world"
+@app.get("/hello_world")
+def hello_world():
+    return {"message":"hello world"}
 
-    # Connexion à MongoDB
-    client = backForDatabase.connect_to_mongo()
-    
-    if client:
-        print(" ça fonctionne !")
+backForDatabase = BackForDatabase() # initialiser les valeurs si besoin plus tard
 
+# Connexion à MongoDB
+client = backForDatabase.connect_to_mongo()
+
+if client:
+    print(" ça fonctionne !")
 
 
