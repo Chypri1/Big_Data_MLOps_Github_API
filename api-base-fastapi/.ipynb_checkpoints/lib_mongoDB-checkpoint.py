@@ -3,31 +3,12 @@ from fastapi import FastAPI, HTTPException
 from typing import List
 from pydantic import BaseModel
 
-PASSWORD_MONGO_URI = "TO_CHANGE"
+PASSWORD_MONGO_URI = "gIznac-7godxe-texkeg"
 
-class OwnerModel(BaseModel):
-    login: str
-    id: int
-    html_url: str
-
+# 🎯 Modèle pour valider les données entrantes
 class DocumentModel(BaseModel):
-    id: int
-    node_id: str
     name: str
-    full_name: str
-    private: bool
-    owner: OwnerModel
-    html_url: str
-    description: str | None
-    fork: bool
-    created_at: str
-    updated_at: str
-    pushed_at: str
-    language: str | None
-    forks_count: int
-    stargazers_count: int
-    watchers_count: int
-    open_issues_count: int
+    value: str  # Exemple d'un autre champ (ajuste selon tes besoins)
 
 class BackForDatabase:
     def __init__(self, connection_uri, database_name="my_database", collection_name="my_collection"):
