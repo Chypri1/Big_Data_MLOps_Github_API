@@ -209,7 +209,8 @@ def add_data(documents: List[DocumentModel]):
     ]
 
     # Insertion des dates d'ingestion
-    inserted_ingestion_date = backForDatabase.insert_ingestion_date(ingestion_dates)
+    inserted_ingestion_date = backForDatabase.insert_ingestion_date([data.dict() for data in ingestion_dates])
+
 
     return {
         "message": "Données insérées",
