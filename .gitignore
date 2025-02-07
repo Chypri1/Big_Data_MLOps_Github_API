@@ -2,4 +2,10 @@
 .ipynb_checkpoints/api-checkpoint.ipynb
 .ipynb_checkpoints/api-checkpoint.json
 .ipynb_checkpoints/BigDataMlOps2024-2025-checkpoint.pdf
+.ipynb_checkpoints/appelGithub-checkpoint.py
 api.json
+api.github.com.yaml
+.DS_Store
+consigne.txt
+api-base-fastapi/.ipynb_checkpoints/lib_mongoDB-checkpoint.py
+api-base-fastapi/.env
