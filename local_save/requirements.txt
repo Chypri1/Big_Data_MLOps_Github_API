@@ -1,6 +1,4 @@
 requests
-json
-os
-string
-pickle
-time
+python-dotenv
+fastapi
+uvicorn

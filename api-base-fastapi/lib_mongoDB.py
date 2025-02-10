@@ -6,7 +6,6 @@ from datetime import datetime
 import os 
 import logging
 from dotenv import load_dotenv
-import os
 
 # Charger les variables d’environnement
 load_dotenv()
