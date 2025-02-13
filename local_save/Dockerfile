@@ -1,14 +1,22 @@
-# Utilisation de l'image Python officielle
+# Utiliser une image officielle Python 3.11
 FROM python:3.11-slim
 
-# Définition du répertoire de travail
+# Définir le répertoire de travail
 WORKDIR /app
 
-# Copie des fichiers nécessaires
-COPY . .
+# Copier les fichiers nécessaires
+COPY requirements.txt .
 
-# Installation des dépendances
+# Installer les dépendances Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Exécution du script
-CMD ["sh", "-c", "uvicorn --host 0.0.0.0 --port 3232 appelGithub:app"]
+# Copier le reste des fichiers de l'application
+COPY . .
+
+# Installer python-dotenv pour charger les variables d’environnement
+RUN pip install python-dotenv
+
+# Exposer le port de l’API
+EXPOSE 80
+
+CMD ["sh", "-c", "uvicorn --host 0.0.0.0 --port 80 appelGithub:app"]
