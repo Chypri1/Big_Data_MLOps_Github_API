@@ -6,7 +6,7 @@ from datetime import datetime
 import os 
 import logging
 from dotenv import load_dotenv
-import os
+from typing import Optional
 
 # Charger les variables d’environnement
 load_dotenv()
@@ -18,6 +18,13 @@ class OwnerModel(BaseModel):
     id: int
     html_url: str
 
+from datetime import datetime
+from pydantic import BaseModel
+
+class OwnerModel(BaseModel):
+    # Ajoute ici les champs nécessaires pour OwnerModel
+    pass
+
 class DocumentModel(BaseModel):
     id: int
     node_id: str
@@ -26,12 +33,12 @@ class DocumentModel(BaseModel):
     private: bool
     owner: OwnerModel
     html_url: str
-    description: str | None
+    description: Optional[str] = None
     fork: bool
-    created_at: str
-    updated_at: str
-    pushed_at: str
-    language: str | None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    pushed_at: Optional[datetime] = None
+    language: Optional[str] = None
     forks_count: int
     stargazers_count: int
     watchers_count: int
@@ -69,29 +76,52 @@ class BackForDatabase:
             print(f"❌ Erreur de connexion : {e}")
             self.client = None  # Reset pour éviter des bugs plus tard
 
+    from pymongo.errors import PyMongoError
+
     def insert_documents(self, documents: List[dict]):
-        """ Insère plusieurs documents dans MongoDB et recrée la collection si elle n'existe pas """
+        """ Insère plusieurs documents dans MongoDB et gère les erreurs de format de date """
         if self.collection is None or self.collection_name not in self.db.list_collection_names():
             print(f"⚠️ Collection '{self.collection_name}' absente. Création en cours...")
             self.collection = self.db[self.collection_name]  # Réassignation de la collection
             print(f"✅ Collection '{self.collection_name}' créée avec succès.")
 
         try:
+            # Vérifier les noms déjà existants pour éviter les doublons
             existing_names = {doc["name"] for doc in self.collection.find({}, {"name": 1})}
-            documents_to_insert = [doc for doc in documents if doc["name"] not in existing_names]
+            documents_to_insert = []
 
+            for doc in documents:
+                # Vérifier si le document existe déjà
+                if doc["name"] in existing_names:
+                    print(f"⚠️ Le document '{doc['name']}' existe déjà, il ne sera pas inséré.")
+                    continue
+
+                # Vérifier et convertir les dates (created_at, updated_at, pushed_at)
+                for field in ["created_at", "updated_at", "pushed_at"]:
+                    if field in doc and doc[field] is not None:
+                        try:
+                            if isinstance(doc[field], str):  # Convertir si c'est une chaîne
+                                doc[field] = datetime.fromisoformat(doc[field].replace("Z", "+00:00"))
+                        except ValueError:
+                            print(f"⚠️ Erreur de format pour '{field}' dans le document '{doc['name']}', valeur ignorée.")
+                            doc[field] = None  # Remplacer par None en cas d'erreur
+
+                documents_to_insert.append(doc)
+
+            # Insertion en base
             if documents_to_insert:
                 result = self.collection.insert_many(documents_to_insert)
-                inserted_ids = [str(_id) for _id in result.inserted_ids]  # Convertir ObjectId en string
+                inserted_ids = [str(_id) for _id in result.inserted_ids]
                 return {"inserted_ids": inserted_ids, "message": "Insertion réussie ✅"}
 
             return {"message": "Aucun nouveau document à insérer."}
-        
-        except Exception as e:
-            print(f"❌ Erreur lors de l'insertion : {e}")
+
+        except PyMongoError as e:
+            print(f"❌ Erreur MongoDB lors de l'insertion : {e}")
             import traceback
             traceback.print_exc()
             return {"error": str(e)}
+
         
     def insert_ingestion_date(self, documents: List[dict]):
         """ Insère plusieurs documents dans MongoDB et recrée la collection si elle n'existe pas """
@@ -118,12 +148,35 @@ class BackForDatabase:
             return {"error": str(e)}
 
 
-    def display_documents(self):
-        """ Retourne tous les documents de la collection """
+    def display_documents(self, page: int = 1, page_size: int = 10):
+        """ Retourne les documents paginés de la collection """
         if self.collection is None:
             return {"error": "Collection non initialisée"}
         
-        return list(self.collection.find({}, {"_id": 0}))  # Exclure `_id` pour simplifier
+        # Calculer l'offset (skip)
+        skip = (page - 1) * page_size
+
+        try:
+            cursor = self.collection.find({}, {"_id": 0}).skip(skip).limit(page_size)
+            documents = list(cursor)
+            
+            # Compter le nombre total de documents pour la pagination
+            total_documents = self.collection.count_documents({})
+            total_pages = (total_documents + page_size - 1) // page_size  # Arrondi vers le haut
+
+            return {
+                "page": page,
+                "page_size": page_size,
+                "total_pages": total_pages,
+                "total_documents": total_documents,
+                "data": documents
+            }
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return {"error": str(e)}
+
 
     def display_ingestion_data(self):
         """ Retourne tous les documents de la collection """
@@ -220,9 +273,13 @@ def add_data(documents: List[DocumentModel]):
 
 
 @app.get("/show_data")
-def show_data():
-    """ Afficher les données de la base MongoDB """
-    return backForDatabase.display_documents()
+def show_data(page: int = 1, page_size: int = 10):
+    """ Afficher les données avec pagination """
+    return backForDatabase.display_documents(page, page_size)
+
+@app.get("/count")
+def count_documents():
+    return backForDatabase.collection_data_ingestion.count_documents({})
 
 @app.get("/get_ingestion_date")
 def get_ingestion_date():
