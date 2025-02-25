@@ -1,5 +1,6 @@
 volumes:
   mongo_data:
+  mlflow_data:
 services:
   api-fastapi:
     build:
@@ -43,7 +44,23 @@ services:
     ports:
       - "8082:8082"
   mlflow:
-    image: bitnami/mlflow:latest
+    image: ghcr.io/mlflow/mlflow:v2.20.2
     restart: always
     ports:
       - "8083:8083"
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:8083
+      - MLFLOW_ARTIFACT_URI=./mlruns
+    command: ["mlflow", "server", "--host", "0.0.0.0", "--port", "8083"]
+  mlflow-serving:
+    image: ghcr.io/mlflow/mlflow:v2.20.2
+    restart: always
+    ports:
+      - "8084:8084"
+    depends_on:
+      - mlflow
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:8083
+      - MODEL_NAME=${MODEL_NAME}
+    command: ["/bin/sh", "-c", "mlflow models serve -m models:/$MODEL_NAME/1 --port 8084 --no-conda"]
+
