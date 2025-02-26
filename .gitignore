@@ -11,4 +11,5 @@ consigne.txt
 api-base-fastapi/.ipynb_checkpoints/lib_mongoDB-checkpoint.py
 api-base-fastapi/.env
 
+api-github/.env
 local_save/.env
