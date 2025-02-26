@@ -70,18 +70,14 @@ def train_log(df, model_name="gradient_boosting", epochs=10, alpha=2, beta=1, ga
 
             mlflow.log_metric("accuracy", acc, step=epoch)
             print(f"🎯 Accuracy: {acc:.4f}")
+ 
+        # Enregistrement du modèle et Ajout du modèle à Model Registry
+        model_path = f"../mlruns/models/{model_name}"
+        mlflow.sklearn.log_model(model.model, artifact_path=f"{model_name}_model",registered_model_name=model_name)
+        # mlflow.sklearn.save_model(model.model, model_path) 
 
-        # Enregistrement du modèle
-        model_path = f"models/{model_name}.pkl"
-        mlflow.sklearn.log_model(model.model, f"{model_name}_model")
-        model.save_model(model_path)
-
-        # Ajout du modèle à Model Registry
         model_uri = f"runs:/{run.info.run_id}/{model_name}_model"
-        try:
-            registered_model = client.create_registered_model(model_name)
-        except Exception:
-            registered_model = model_name 
+
         model_version = client.create_model_version(name=model_name, source=model_uri, run_id=run.info.run_id)
         print(f"✅ Modèle {model_name} enregistré en version {model_version.version}")
         #Mise en production automatique du modèle
