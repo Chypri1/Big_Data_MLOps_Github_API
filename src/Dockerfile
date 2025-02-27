@@ -1,9 +1,18 @@
-FROM python:3.13-slim
+# Utiliser une image Python légère
+FROM python:3.9-slim
 
+# Définir le répertoire de travail
 WORKDIR /app
 
-RUN pip install fastapi mlflow==2.20.2 psutil==7.0.0
+# Copier les fichiers nécessaires
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+RUN apt update && apt install curl -y
+# Copier le code source de l'API
+COPY . .
 
-EXPOSE 8083
+# Exposer le port utilisé par FastAPI
+EXPOSE 8000
 
-CMD ["python", "app.py"]
+# Lancer l'API avec Uvicorn
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8084"]

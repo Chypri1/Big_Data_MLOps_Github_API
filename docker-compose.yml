@@ -50,16 +50,16 @@ services:
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow:8083
       - MLFLOW_ARTIFACT_URI=./mlruns
-    command: ["mlflow", "server", "--host", "0.0.0.0", "--port", "8083"]
+    command: ["mlflow", "server", "--host", "0.0.0.0", "--port", "8083", "--artifacts-destination", "/mlruns"]
     volumes:
       - ./mlruns:/mlruns
-  mlflow-serving:
+  mlflow-predict:
     restart: always
     build:
       context: ./src
       dockerfile: Dockerfile
     ports:
-      - "8084:8083"
+      - "8084:8084"
     env_file:
       - .env
     depends_on:

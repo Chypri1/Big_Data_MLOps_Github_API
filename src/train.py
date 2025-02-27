@@ -43,7 +43,6 @@ def train_log(df, model_name="gradient_boosting", epochs=10, alpha=2, beta=1, ga
     mlflow.set_experiment(f"Train {model_name}")
     model = get_model(model_name, lr=0.01, n_estimators=10)
     df = prepare_data(model, df, alpha, beta, gamma)
-
     X = df.drop(columns=["language"])
     y = df["language"]
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, shuffle=True)
@@ -72,9 +71,14 @@ def train_log(df, model_name="gradient_boosting", epochs=10, alpha=2, beta=1, ga
             print(f"🎯 Accuracy: {acc:.4f}")
  
         # Enregistrement du modèle et Ajout du modèle à Model Registry
-        model_path = f"../mlruns/models/{model_name}"
+        # Sauvegarde des labels dans un fichier JSON
+        labels_path = f"{model_name}_labels.json"
+        with open(labels_path, "w") as f:
+            json.dump(model.labels.tolist(), f)
+
+        # Log des labels en tant qu'artifact MLflow
+        mlflow.log_artifact(labels_path, artifact_path="labels")
         mlflow.sklearn.log_model(model.model, artifact_path=f"{model_name}_model",registered_model_name=model_name)
-        # mlflow.sklearn.save_model(model.model, model_path) 
 
         model_uri = f"runs:/{run.info.run_id}/{model_name}_model"
 
@@ -92,8 +96,8 @@ def train_log(df, model_name="gradient_boosting", epochs=10, alpha=2, beta=1, ga
             env_file.write(f"MODEL_NAME={model_name}\n")
 
         print(f"Nouvelle variable MODEL_NAME={model_name} enregistrée dans .env")
-
         # Redémarrer le service MLflow Serving pour prendre en compte le nouveau modèle
         os.system("docker-compose restart mlflow-serving")
 
     return acc
+
