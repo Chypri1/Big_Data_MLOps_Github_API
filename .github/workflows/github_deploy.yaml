@@ -46,8 +46,8 @@ env:
   #DEPLOYMENT_MANIFEST_PATH: "your-deployment-manifest-path"
 
 jobs:
-  if: contains(github.event.head_commit.modified, 'api-github/')
   buildAndDeployGithub:
+    if: contains(github.event.head_commit.modified, 'api-github/')
     permissions:
       contents: read
       id-token: write
@@ -73,8 +73,8 @@ jobs:
         run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-github:latest
 
 
-  if: contains(github.event.head_commit.modified, 'api-base-fastapi/')
   buildAndDeployFastapi:
+    if: contains(github.event.head_commit.modified, 'api-base-fastapi/')
     permissions:
       contents: read
       id-token: write
@@ -100,8 +100,8 @@ jobs:
         run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-fastapi:latest
 
 
-  if: contains(github.event.head_commit.modified, 'kafka-component/')
   buildAndDeployKafka:
+    if: contains(github.event.head_commit.modified, 'kafka-component/')
     permissions:
       contents: read
       id-token: write
