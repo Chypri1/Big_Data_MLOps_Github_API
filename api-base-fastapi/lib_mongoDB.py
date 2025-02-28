@@ -1,9 +1,12 @@
+import threading
+import json
+from confluent_kafka import Consumer, KafkaError
 from pymongo import MongoClient
 from fastapi import FastAPI, HTTPException
 from typing import List
 from pydantic import BaseModel
 from datetime import datetime
-import os 
+import os
 import logging
 from dotenv import load_dotenv
 from typing import Optional
@@ -11,7 +14,8 @@ from typing import Optional
 # Charger les variables d’environnement
 load_dotenv()
 
-PASSWORD_MONGO_URI = os.getenv("PASSWORD_MONGO_URI")
+MONGO_URI = os.getenv("MONGO_URI")
+VERSION = 
 
 class OwnerModel(BaseModel):
     login: str
@@ -230,18 +234,16 @@ class BackForDatabase:
 
     
     
-# 🎯 Initialisation avec l'URI Azure Cosmos DB
-MONGO_URI = "mongodb+srv://cyprien16112001mpt:<password>@cluster-projet-mlops-big-data-mpt.global.mongocluster.cosmos.azure.com/?tls=true&authMechanism=SCRAM-SHA-256&retrywrites=false&maxIdleTimeMS=120000"
-MONGO_URI = MONGO_URI.replace("<password>", PASSWORD_MONGO_URI)
+# Initialisation avec l'URI Azure Cosmos DB
 backForDatabase = BackForDatabase(connection_uri=MONGO_URI)
 backForDatabase.connect_to_mongo()
 
-# 🎯 Création de l'API FastAPI
+# Création de l'API FastAPI
 app = FastAPI()
 
 @app.get("/")
 def base():
-    return {"message": "Client connecté !" if backForDatabase.client else "Client non connecté !"}
+    return {"message": "Client connecté !" if backForDatabase.client else "Client non connecté !\n Version : " + str(VERSION)}
 
 @app.get("/hello_world")
 def hello_world():
@@ -279,7 +281,7 @@ def show_data(page: int = 1, page_size: int = 10):
 
 @app.get("/count")
 def count_documents():
-    return backForDatabase.collection_data_ingestion.count_documents({})
+    return backForDatabase.collection.count_documents({})
 
 @app.get("/get_ingestion_date")
 def get_ingestion_date():
@@ -296,3 +298,53 @@ def delete_collection(collection_name: str):
         raise HTTPException(status_code=500, detail=result["error"])
     
     return result
+
+# Kafka consumer 
+conf = {
+    'bootstrap.servers': 'kafka:9093',
+    'group.id': 'mon-groupe-consumer',
+    'auto.offset.reset': 'earliest',  # Pour lire depuis le début du topic
+}
+
+consumer = Consumer(conf)
+consumer.subscribe(['weather_data_demo'])
+
+# Kafka Consumer en arrière-plan
+def kafka_consumer():
+    """ Fonction pour consommer les messages Kafka et les insérer dans MongoDB """
+    try:
+        while True:
+            messages = consumer.consume(num_messages=1, timeout=10.0)
+            if not messages:
+                continue  # Attente passive
+
+            for msg in messages:
+                if msg.error():
+                    if msg.error().code() == KafkaError._PARTITION_EOF:
+                        print(f"Fin de partition {msg.topic()} [{msg.partition()}]")
+                    else:
+                        print(f"Erreur: {msg.error()}")
+                else:
+                    try:
+                        data = json.loads(msg.value().decode('utf-8'))
+                        print("Message reçu :", data)
+
+                        # Insérer dans MongoDB
+                        if backForDatabase.client is None:
+                            backForDatabase.insert_documents([data])
+                            ingestion_data = DataIngestionDate(id=data["id"], node_id=data["node_id"]).dict()
+                            backForDatabase.insert_ingestion_date([ingestion_data])
+
+                    except json.JSONDecodeError:
+                        print("Message reçu (non-JSON):", msg.value().decode('utf-8'))
+
+    except KeyboardInterrupt:
+        print("Arrêt du consumer Kafka")
+    finally:
+        consumer.close()
+
+# Démarrer le consumer Kafka dans un thread
+kafka_thread = threading.Thread(target=kafka_consumer, daemon=True)
+kafka_thread.start()
+
+print("Consumer Kafka lancé en arrière-plan")
