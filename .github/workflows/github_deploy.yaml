@@ -67,14 +67,3 @@ jobs:
 
       - name: Push Docker image
         run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/big-data-mlops:latest
-
-      - name: Set up Azure Kubernetes CLI
-        uses: azure/setup-aks@v1
-        with:
-          azure-cli-version: '2.25.0'
-
-      - name: Get AKS credentials
-        run: az aks get-credentials --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --name ${{ secrets.AZURE_AKS_CLUSTER_NAME }}
-
-      - name: Deploy to AKS
-        run: kubectl apply -f deployment.yaml
