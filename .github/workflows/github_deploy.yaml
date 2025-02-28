@@ -32,7 +32,10 @@ name: Build and deploy an app to AKS
 on:
   push:
     branches: ["main"]
-    paths: '**/api-github/**'
+    paths: 
+      - '**/api-github/**'
+      - '**/api-base-fastapi/**'
+      - '**/kafka-component/**'
   workflow_dispatch:
 
 env:
@@ -43,7 +46,8 @@ env:
   #DEPLOYMENT_MANIFEST_PATH: "your-deployment-manifest-path"
 
 jobs:
-  buildAndDeploy:
+  if: contains(github.event.head_commit.modified, 'api-github/')
+  buildAndDeployGithub:
     permissions:
       contents: read
       id-token: write
@@ -63,7 +67,62 @@ jobs:
 
       # Builds and pushes an image up to your Azure Container Registry
       - name: Build Docker image
-        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/big-data-mlops:latest ./api-github
+        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/api-github:latest ./api-github
 
       - name: Push Docker image
-        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/big-data-mlops:latest
+        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-github:latest
+
+
+  if: contains(github.event.head_commit.modified, 'api-base-fastapi/')
+  buildAndDeployFastapi:
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      # Checks out the repository this file is in
+      - uses: actions/checkout@v4
+
+      # Logs in with your Azure credentials
+      - name: Azure login
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.AZURE_REGISTRY_URL }}  # Votre ACR
+          username: ${{ secrets.AZURE_REGISTRY_USERNAME }}
+          password: ${{ secrets.AZURE_REGISTRY_PASSWORD }}
+
+
+      # Builds and pushes an image up to your Azure Container Registry
+      - name: Build Docker image
+        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/api-fastapi:latest ./api-base-fastapi
+
+      - name: Push Docker image
+        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-fastapi:latest
+
+
+  if: contains(github.event.head_commit.modified, 'kafka-component/')
+  buildAndDeployKafka:
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      # Checks out the repository this file is in
+      - uses: actions/checkout@v4
+
+      # Logs in with your Azure credentials
+      - name: Azure login
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.AZURE_REGISTRY_URL }}  # Votre ACR
+          username: ${{ secrets.AZURE_REGISTRY_USERNAME }}
+          password: ${{ secrets.AZURE_REGISTRY_PASSWORD }}
+
+
+      # Builds and pushes an image up to your Azure Container Registry
+      - name: Build Docker image
+        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/kafka-image:latest ./kafkaimage
+      - name: Push Docker image
+        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/kafka-images:latest
+
+
