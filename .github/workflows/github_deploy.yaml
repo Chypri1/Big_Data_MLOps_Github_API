@@ -54,7 +54,7 @@ jobs:
 
       # Logs in with your Azure credentials
       - name: Azure login
-        uses: azure/login@v1.4.6
+        uses: azure/docker-login@v1
         with:
           login-server: ${{ secrets.AZURE_REGISTRY_URL }}  # Votre ACR
           username: ${{ secrets.AZURE_REGISTRY_USERNAME }}
