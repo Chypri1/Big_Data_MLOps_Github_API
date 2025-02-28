@@ -63,7 +63,7 @@ jobs:
 
       # Builds and pushes an image up to your Azure Container Registry
       - name: Build Docker image
-        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/big-data-mlops:latest .
+        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/big-data-mlops:latest ./api-github
 
       - name: Push Docker image
         run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/big-data-mlops:latest
