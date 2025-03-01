@@ -1,10 +1,10 @@
 volumes:
   mongo_data:
 services:
-  api-fastapi:
+  api-base-mongo:
     restart: always
     build:
-      context: ./api-base-fastapi
+      context: ./api-base-mongo
       dockerfile: Dockerfile
     volumes:
       - /tmp:/tmp
@@ -16,7 +16,7 @@ services:
 
   api-github:
     build:
-      context: ./api-github
+      context: ./api-request-github
       dockerfile: Dockerfile
     volumes:
       - /tmp:/tmp
@@ -30,6 +30,7 @@ services:
     ports:
       - "8001:8001"
     command: ["mongod", "--port", "8001"]
+
 
   mongo-express:
     image: mongo-express
@@ -57,8 +58,8 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
-      KAFKA_LISTENERS: "LISTENER_LOCAL://127.0.0.1:9092,LISTENER_DOCKER://kafka:9093"
-      KAFKA_ADVERTISED_LISTENERS: "LISTENER_LOCAL://127.0.0.1:9092,LISTENER_DOCKER://kafka:9093"
+      KAFKA_LISTENERS: "LISTENER_LOCAL://0.0.0.0:9092,LISTENER_DOCKER://kafka:9093"
+      KAFKA_ADVERTISED_LISTENERS: "LISTENER_LOCAL://localhost:9092,LISTENER_DOCKER://kafka:9093"
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "LISTENER_LOCAL:PLAINTEXT,LISTENER_DOCKER:PLAINTEXT"
       KAFKA_INTER_BROKER_LISTENER_NAME: "LISTENER_DOCKER"
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"

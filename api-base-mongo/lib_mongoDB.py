@@ -15,7 +15,6 @@ from typing import Optional
 load_dotenv()
 
 MONGO_URI = os.getenv("MONGO_URI")
-VERSION = 
 
 class OwnerModel(BaseModel):
     login: str
@@ -67,7 +66,7 @@ class BackForDatabase:
     def connect_to_mongo(self):
         """ Connexion à MongoDB (Azure Cosmos DB API Mongo) """
         try:
-            self.client = MongoClient(self.connection_uri)
+            self.client = MongoClient(self.connection_uri, serverSelectionTimeoutMS=5000)
             self.db = self.client[self.database_name]
             self.collection = self.db[self.collection_name]
             self.collection_data_ingestion = self.db[self.collection_data_ingestion_name]
@@ -190,7 +189,7 @@ class BackForDatabase:
         try:
             cursor = self.collection_data_ingestion.find({}, {"_id": 0})
             data = list(cursor)  # Convertir proprement en liste
-            return {"data": data, "message": "Données récupérées avec succès ✅"}
+            return {"data": data, "message": "Données récupérées avec succès"}
         except Exception as e:
             import traceback
             traceback.print_exc()  # Voir l'erreur complète dans les logs
@@ -203,30 +202,30 @@ class BackForDatabase:
     def delete_collection(self, collection_name: str):
         """ Supprime une collection spécifique de la base de données """
         if self.db is None:
-            logging.error("❌ Erreur : Base de données non connectée")
+            logging.error("Erreur : Base de données non connectée")
             return {"error": "Base de données non connectée"}
         
         try:
             # Récupérer la liste des collections avant suppression
             collections = self.db.list_collection_names()
-            logging.info(f"📂 Collections existantes avant suppression : {collections}")
+            logging.info(f"Collections existantes avant suppression : {collections}")
 
             if collection_name not in collections:
-                logging.warning(f"⚠️ La collection '{collection_name}' n'existe pas, rien à supprimer.")
+                logging.warning(f"La collection '{collection_name}' n'existe pas, rien à supprimer.")
                 return {"warning": f"La collection '{collection_name}' n'existe pas."}
 
             # Suppression de la collection
-            logging.info(f"🗑 Suppression de la collection '{collection_name}'...")
+            logging.info(f"Suppression de la collection '{collection_name}'...")
             self.db.drop_collection(collection_name)
             
             # Vérification après suppression
             collections_after = self.db.list_collection_names()
-            logging.info(f"📂 Collections restantes après suppression : {collections_after}")
+            logging.info(f"Collections restantes après suppression : {collections_after}")
 
-            return {"message": f"Collection '{collection_name}' supprimée avec succès ✅"}
+            return {"message": f"Collection '{collection_name}' supprimée avec succès"}
         
         except Exception as e:
-            logging.error(f"❌ Erreur lors de la suppression de la collection '{collection_name}': {e}", exc_info=True)
+            logging.error(f"Erreur lors de la suppression de la collection '{collection_name}': {e}", exc_info=True)
             return {"error": str(e)}
 
 
@@ -243,7 +242,7 @@ app = FastAPI()
 
 @app.get("/")
 def base():
-    return {"message": "Client connecté !" if backForDatabase.client else "Client non connecté !\n Version : " + str(VERSION)}
+    return {"message": "Client connecté !" if backForDatabase.client else "Client non connecté !"}
 
 @app.get("/hello_world")
 def hello_world():
@@ -334,6 +333,8 @@ def kafka_consumer():
                             backForDatabase.insert_documents([data])
                             ingestion_data = DataIngestionDate(id=data["id"], node_id=data["node_id"]).dict()
                             backForDatabase.insert_ingestion_date([ingestion_data])
+                        else:
+                            return 
 
                     except json.JSONDecodeError:
                         print("Message reçu (non-JSON):", msg.value().decode('utf-8'))

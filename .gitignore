@@ -12,4 +12,3 @@ api-base-mongo/.ipynb_checkpoints/lib_mongoDB-checkpoint.py
 api-base-mongo/.env
 
 api-request-github/.env
-local_save/.env
