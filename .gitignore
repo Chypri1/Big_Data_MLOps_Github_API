@@ -8,8 +8,8 @@ api.github.com.yaml
 .DS_Store
 consigne.txt
 
-api-base-fastapi/.ipynb_checkpoints/lib_mongoDB-checkpoint.py
-api-base-fastapi/.env
+api-base-mongo/.ipynb_checkpoints/lib_mongoDB-checkpoint.py
+api-base-mongo/.env
 
-api-github/.env
+api-request-github/.env
 local_save/.env
