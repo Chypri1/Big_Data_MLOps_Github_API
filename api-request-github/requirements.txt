@@ -1,4 +1,4 @@
 requests
 fastapi
 uvicorn
-confluent_kafka
+confluent_kafka==2.4.0
