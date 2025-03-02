@@ -12,7 +12,6 @@ services:
       - "8080:8080"
     depends_on:
       - mongodb
-      - kafka
 
   api-github:
     build:
@@ -22,6 +21,7 @@ services:
       - /tmp:/tmp
     ports:
       - "7000:7000"
+      
   mongodb:
     image: mongo
     restart: always

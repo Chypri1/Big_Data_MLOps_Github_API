@@ -15,11 +15,10 @@ load_dotenv()
 
 # Variables d'environnement
 BASE_URL = "https://api.github.com"
-URI_MONGO_DB = os.getenv("URI_MONGO_DB")
+URI_MONGO_DB = os.getenv("URI_API_BASE_MONGO_DB")
 API_KEY_GH = os.getenv("API_KEY_GH")
-# Configuration du Producteur Kafka
-KAFKA_BROKER = "localhost:9092"  # Adresse du broker
-KAFKA_TOPIC = "data_topic"  # Nom du topic Kafka
+KAFKA_BROKER = os.getenv("KAFKA_BROKER")
+KAFKA_TOPIC = os.getenv("KAFKA_TOPIC")
 
 
 class OwnerModel(BaseModel):
@@ -102,16 +101,14 @@ class AppelGithub:
             return pickle.load(file)
 
 
-# API FastAPI
-app = FastAPI()
-client = AppelGithub()
-producer = Producer({'bootstrap.servers': KAFKA_BROKER})
-
 # Configurer les logs pour voir ce qu'il se passe en arrière-plan
+client = AppelGithub()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-executor = ThreadPoolExecutor(max_workers=1)
+
+# API for interact with component
+app = FastAPI()
 
 @app.get("/")
 def base():
@@ -122,40 +119,24 @@ def base():
 def hello_world():
     return {"message": "Hello, world!"}
 
-
 @app.post("/recup_jour")
 def jour_récup_auto(year: int, month: int, day: int):
-    try:
-        month_str = f"{month:02d}"
-        day_str = f"{day:02d}"
-        repos = client.get_repos_created_in_day_multipages(str(year), month_str, day_str, 1)
-
-        if URI_MONGO_DB:
-            for doc in repos:
-                message = json.dumps(doc)  # Convertir en JSON
-                response = producer.produce(KAFKA_TOPIC, key=str(doc["id"]), value=message, callback=delivery_report)
-            producer.flush()
-
-        return {"message": response}
-    
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur serveur : {str(e)}")
+    return send_to_kafka(year, month, day)
 
 @app.get("/start")
 def start_recup_auto():
+    return send_to_threading
+
+# function with thread for using fastapi and being able to do some auto recuperations
+executor = ThreadPoolExecutor(max_workers=1)
+
+def send_to_threading():
     future = executor.submit(recup_auto)
 
     if future.running():
         return {"message": "Récupération déjà en cours."}
     else:
         return {"message": "Récupération démarrée en arrière-plan."}
-
-def delivery_report(err, msg):
-    """Callback pour savoir si le message a été envoyé avec succès"""
-    if err is not None:
-        print(f"Erreur d'envoi Kafka: {err}")
-    else:
-        return (f"Message envoyé à {msg.topic()} [{msg.partition()}] avec offset {msg.offset()}")
 
 def recup_auto():
     try:
@@ -171,13 +152,15 @@ def recup_auto():
                     repos = client.get_repos_created_in_day_multipages(year, month, day_str, max_pages)
 
                     if URI_MONGO_DB:
-                        for doc in repos:
-                            message = json.dumps(doc)  # Convertir en JSON
-                            producer.produce(KAFKA_TOPIC, key=str(doc.id), value=message, callback=delivery_report)
-                        producer.flush()
+                        # option 1 with call to kafka queue (for local deployement)
+                        # for doc in repos:
+                        #    message = json.dumps(doc)  # Convertir en JSON
+                        #    producer.produce(KAFKA_TOPIC, key=str(doc.id), value=message, callback=delivery_report)
+                        #producer.flush()
 
-                        # response = requests.post(f"{URI_MONGO_DB}/add_data", json=repos)
-                        # logger.info(f"POST vers MongoDB: {response.status_code}")
+                        # option 2 with direct call to api-base-mongo (for azure deployement)
+                        response = requests.post(f"{URI_MONGO_DB}/add_data", json=repos)
+                        logger.info(f"POST vers MongoDB: {response.status_code}")
 
                     res.extend(repos)
 
@@ -187,3 +170,36 @@ def recup_auto():
         logger.error(f"Erreur dans la récupération : {e}")
 
 
+# Callback function to know the sending's state
+def delivery_report(err, msg):
+    """Callback pour savoir si le message a été envoyé avec succès"""
+    if err is not None:
+        print(f"Erreur d'envoi Kafka: {err}")
+    else:
+        return (f"Message envoyé à {msg.topic()} [{msg.partition()}] avec offset {msg.offset()}")
+
+
+# Send to kafka with this function  and conf
+conf = {
+    "bootstrap.servers": KAFKA_BROKER,  # Assure-toi d'utiliser 127.0.0.1
+    "security.protocol": "PLAINTEXT",        # Assure-toi qu'il n'y a pas de protocole sécurisé
+    "client.id": "python-producer"
+}
+producer = Producer(conf)
+
+def send_to_kafka(year, month, day):
+    try:
+        month_str = f"{month:02d}"
+        day_str = f"{day:02d}"
+        repos = client.get_repos_created_in_day_multipages(str(year), month_str, day_str, 1)
+
+        if URI_MONGO_DB:
+            for doc in repos:
+                message = json.dumps(doc)  # Convertir en JSON
+                response = producer.produce(KAFKA_TOPIC, key=str(doc["id"]), value=message, callback=delivery_report)
+            producer.flush()
+
+        return {"message": response}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur serveur : {str(e)}")
