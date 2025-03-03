@@ -13,7 +13,6 @@ import logging
 # Charger les variables d’environnement
 load_dotenv()
 
-# Variables d'environnement
 BASE_URL = "https://api.github.com"
 URI_MONGO_DB = os.getenv("URI_API_BASE_MONGO_DB")
 API_KEY_GH = os.getenv("API_KEY_GH")
@@ -101,7 +100,6 @@ class AppelGithub:
             return pickle.load(file)
 
 
-# Configurer les logs pour voir ce qu'il se passe en arrière-plan
 client = AppelGithub()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -181,8 +179,8 @@ def delivery_report(err, msg):
 
 # Send to kafka with this function  and conf
 conf = {
-    "bootstrap.servers": KAFKA_BROKER,  # Assure-toi d'utiliser 127.0.0.1
-    "security.protocol": "PLAINTEXT",        # Assure-toi qu'il n'y a pas de protocole sécurisé
+    "bootstrap.servers": KAFKA_BROKER,
+    "security.protocol": "PLAINTEXT",
     "client.id": "python-producer"
 }
 producer = Producer(conf)
@@ -195,7 +193,7 @@ def send_to_kafka(year, month, day):
 
         if URI_MONGO_DB:
             for doc in repos:
-                message = json.dumps(doc)  # Convertir en JSON
+                message = json.dumps(doc)  # Convert to JSON
                 response = producer.produce(KAFKA_TOPIC, key=str(doc["id"]), value=message, callback=delivery_report)
             producer.flush()
 

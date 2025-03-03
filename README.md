@@ -1,14 +1,14 @@
 # Big_Data_MLOps_Github_API
 
-## Token Appel API Github
-Il faut créer un fichier api.json qui contient une clé token pour pouvoir faire plus d'appels:
-```
-{GH_API_KEY:"LACLÉ"}
-```
+## REFAIRE CE README 
 
-## Commande docker 
-Pour connaitre les conatiners docker qui sont actifs:
-```
-docker ps
-```
+changer le mode commenté entre ligne 152 et 161 dans ./api-request-github/appelGithub.py
 
+créer des ficheirs .env dans chaque folder ou se trouve un .env.exemple pour avoir une conf locale
+copier le contenu du .env.exemple pour chaque conf locale
+
+lancer un ```docker compose up --build``` en vérifiant que les ports xxxx,yyyy,zzzz et aaaa sont libres
+
+aller dans le notebook prévu à la démo du projet (si besoin un notebook par folder est dispo pour tester chaque endpoint créé)
+
+lancer un ```docker compose down -v``` pour terminer stopper tous les composants.
