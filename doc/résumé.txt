@@ -1,31 +1,32 @@
-But du projet: Prédiction de classement des langages les plus populaires sur Githbu parmis les repos publics
+But du projet: Prédiction de classement des langages les plus populaires sur Github parmis les repos publics
 
 Quelles données en entrée et en sortie du pipeline.
-in: Données publiques de la plateforme GitHub.
-out: Classements(sous forme de tableaux?)
+in: Données publiques de la plateforme GitHub. (endpoint /search/repositories depuis API Resquest Github)
+out: Langage le plus utilisé voire classement selon top 
 
 - mongo express: Visualisation des données mongoDB
-in: Données MongoDB
-out: Texte ou image
 
-- mongoDB: BDD de suivi de l'ingestion
-in: Statistiques d'ingestion par notre base
-out: X
+- mongoDB: Base de données non formaté
+data: repositories public au format json
 
 - api base mongo: API d'accès à la base mongoDB
-in: ?
-out: ?
+call_mode: endpoint 
+in: data de repositories
+out: données venant de la base
 
-- api request github: composant appelant l'API github pour récupérer les données des repos
-in: Chaines de caractères
-out: repositories github nettoyés et formattés
-
-- api github: API côté GitHub
-in: 
+- api request github: composant appelant l'API github pour récupérer les données des repositories publics 
+call_mode: endpoint
+in: repositories json from Github
+out: repositories github nettoyés et formatés
 
 - Kafka: Distribue les données entre les composants du pipeline sans dépendre de leur fonctionnement.
 
 - MLFlow: Gère l'entrainement et le déploiment des modèles
 
-- Modèles: Modèles prédictifs de machine learning
+- train model: Script d'entrainement des modeles 
+in: repositories from api-base-mongo
+out: classification model trained 
 
+- model serving: mise à disposition du modèle choisi
+in: date de la création de repositories
+out: prédiction du langage 
