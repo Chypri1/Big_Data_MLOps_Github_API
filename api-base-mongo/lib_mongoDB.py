@@ -233,6 +233,7 @@ backForDatabase = BackForDatabase(connection_uri=MONGO_URI)
 backForDatabase.connect_to_mongo()
 
 # fastapi and endpoint creations, instanciations
+app = FastAPI()
 
 @app.get("/")
 def base():
