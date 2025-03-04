@@ -1,9 +1,12 @@
+import threading
+import json
+from confluent_kafka import Consumer, KafkaError
 from pymongo import MongoClient
 from fastapi import FastAPI, HTTPException
 from typing import List
 from pydantic import BaseModel
 from datetime import datetime
-import os 
+import os
 import logging
 from dotenv import load_dotenv
 from typing import Optional
@@ -11,19 +14,14 @@ from typing import Optional
 # Charger les variables d’environnement
 load_dotenv()
 
-PASSWORD_MONGO_URI = os.getenv("PASSWORD_MONGO_URI")
+MONGO_URI = os.getenv("MONGO_URI")
+KAFKA_BROKER = os.getenv("KAFKA_BROKER")
+KAFKA_TOPIC = os.getenv("KAFKA_TOPIC")
 
 class OwnerModel(BaseModel):
     login: str
     id: int
     html_url: str
-
-from datetime import datetime
-from pydantic import BaseModel
-
-class OwnerModel(BaseModel):
-    # Ajoute ici les champs nécessaires pour OwnerModel
-    pass
 
 class DocumentModel(BaseModel):
     id: int
@@ -63,61 +61,60 @@ class BackForDatabase:
     def connect_to_mongo(self):
         """ Connexion à MongoDB (Azure Cosmos DB API Mongo) """
         try:
-            self.client = MongoClient(self.connection_uri)
+            self.client = MongoClient(self.connection_uri, serverSelectionTimeoutMS=5000)
             self.db = self.client[self.database_name]
             self.collection = self.db[self.collection_name]
             self.collection_data_ingestion = self.db[self.collection_data_ingestion_name]
             
             if self.collection is not None:
-                print("✅ Connexion réussie à MongoDB Cosmos DB")
+                print("Connexion réussie à MongoDB Cosmos DB")
             else:
-                print("🚨 Erreur : Collection introuvable")
+                print("Erreur : Collection introuvable")
         except Exception as e:
-            print(f"❌ Erreur de connexion : {e}")
-            self.client = None  # Reset pour éviter des bugs plus tard
+            print(f"Erreur de connexion : {e}")
+            self.client = None  
 
     from pymongo.errors import PyMongoError
 
     def insert_documents(self, documents: List[dict]):
         """ Insère plusieurs documents dans MongoDB et gère les erreurs de format de date """
         if self.collection is None or self.collection_name not in self.db.list_collection_names():
-            print(f"⚠️ Collection '{self.collection_name}' absente. Création en cours...")
-            self.collection = self.db[self.collection_name]  # Réassignation de la collection
-            print(f"✅ Collection '{self.collection_name}' créée avec succès.")
+            print(f"Collection '{self.collection_name}' absente. Création en cours...")
+            self.collection = self.db[self.collection_name]  # Creating collection
+            print(f"Collection '{self.collection_name}' créée avec succès.")
 
         try:
-            # Vérifier les noms déjà existants pour éviter les doublons
+            # Vérify to not have duplicate docs 
             existing_names = {doc["name"] for doc in self.collection.find({}, {"name": 1})}
             documents_to_insert = []
 
             for doc in documents:
-                # Vérifier si le document existe déjà
                 if doc["name"] in existing_names:
-                    print(f"⚠️ Le document '{doc['name']}' existe déjà, il ne sera pas inséré.")
+                    print(f"Le document '{doc['name']}' existe déjà, il ne sera pas inséré.")
                     continue
 
-                # Vérifier et convertir les dates (created_at, updated_at, pushed_at)
+                # Vérify et convert dates (created_at, updated_at, pushed_at)
                 for field in ["created_at", "updated_at", "pushed_at"]:
                     if field in doc and doc[field] is not None:
                         try:
-                            if isinstance(doc[field], str):  # Convertir si c'est une chaîne
+                            if isinstance(doc[field], str):  
                                 doc[field] = datetime.fromisoformat(doc[field].replace("Z", "+00:00"))
                         except ValueError:
-                            print(f"⚠️ Erreur de format pour '{field}' dans le document '{doc['name']}', valeur ignorée.")
-                            doc[field] = None  # Remplacer par None en cas d'erreur
+                            print(f"Erreur de format pour '{field}' dans le document '{doc['name']}', valeur ignorée.")
+                            doc[field] = None  
 
                 documents_to_insert.append(doc)
 
-            # Insertion en base
+            # Database insertion
             if documents_to_insert:
                 result = self.collection.insert_many(documents_to_insert)
                 inserted_ids = [str(_id) for _id in result.inserted_ids]
-                return {"inserted_ids": inserted_ids, "message": "Insertion réussie ✅"}
+                return {"inserted_ids": inserted_ids, "message": "Insertion réussie"}
 
             return {"message": "Aucun nouveau document à insérer."}
 
         except PyMongoError as e:
-            print(f"❌ Erreur MongoDB lors de l'insertion : {e}")
+            print(f"Erreur MongoDB lors de l'insertion : {e}")
             import traceback
             traceback.print_exc()
             return {"error": str(e)}
@@ -126,23 +123,23 @@ class BackForDatabase:
     def insert_ingestion_date(self, documents: List[dict]):
         """ Insère plusieurs documents dans MongoDB et recrée la collection si elle n'existe pas """
         if self.collection_data_ingestion is None or self.collection_data_ingestion_name not in self.db.list_collection_names():
-            print(f"⚠️ Collection '{self.collection_data_ingestion_name}' absente. Création en cours...")
-            self.collection_data_ingestion = self.db[self.collection_data_ingestion_name]  # Correction ici
-            print(f"✅ Collection '{self.collection_data_ingestion_name}' créée avec succès.")
+            print(f"Collection '{self.collection_data_ingestion_name}' absente. Création en cours...")
+            self.collection_data_ingestion = self.db[self.collection_data_ingestion_name]  
+            print(f"Collection '{self.collection_data_ingestion_name}' créée avec succès.")
 
         try:
             existing_ids = {doc["id"] for doc in self.collection_data_ingestion.find({}, {"id": 1})}
             documents_to_insert = [doc for doc in documents if doc["id"] not in existing_ids]
 
             if documents_to_insert:
-                result = self.collection_data_ingestion.insert_many(documents_to_insert)  # Correction ici
-                inserted_ids = [str(_id) for _id in result.inserted_ids]  # Convertir ObjectId en string
-                return {"inserted_ids": inserted_ids, "message": "Insertion réussie ✅"}
+                result = self.collection_data_ingestion.insert_many(documents_to_insert) 
+                inserted_ids = [str(_id) for _id in result.inserted_ids]
+                return {"inserted_ids": inserted_ids, "message": "Insertion réussie"}
 
             return {"message": "Aucun nouveau document à insérer."}
         
         except Exception as e:
-            print(f"❌ Erreur lors de l'insertion : {e}")
+            print(f"Erreur lors de l'insertion : {e}")
             import traceback
             traceback.print_exc()
             return {"error": str(e)}
@@ -153,14 +150,14 @@ class BackForDatabase:
         if self.collection is None:
             return {"error": "Collection non initialisée"}
         
-        # Calculer l'offset (skip)
+        # Calculate offset
         skip = (page - 1) * page_size
 
         try:
             cursor = self.collection.find({}, {"_id": 0}).skip(skip).limit(page_size)
             documents = list(cursor)
             
-            # Compter le nombre total de documents pour la pagination
+            # Count total documents for pagination
             total_documents = self.collection.count_documents({})
             total_pages = (total_documents + page_size - 1) // page_size  # Arrondi vers le haut
 
@@ -185,44 +182,42 @@ class BackForDatabase:
 
         try:
             cursor = self.collection_data_ingestion.find({}, {"_id": 0})
-            data = list(cursor)  # Convertir proprement en liste
-            return {"data": data, "message": "Données récupérées avec succès ✅"}
+            data = list(cursor)  # convert to list
+            return {"data": data, "message": "Données récupérées avec succès"}
         except Exception as e:
             import traceback
-            traceback.print_exc()  # Voir l'erreur complète dans les logs
+            traceback.print_exc()
             return {"error": str(e)}
         
 
-    # Configuration du logging
+    # logging Configuration 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
     def delete_collection(self, collection_name: str):
         """ Supprime une collection spécifique de la base de données """
         if self.db is None:
-            logging.error("❌ Erreur : Base de données non connectée")
+            logging.error("Erreur : Base de données non connectée")
             return {"error": "Base de données non connectée"}
         
         try:
-            # Récupérer la liste des collections avant suppression
+            
             collections = self.db.list_collection_names()
-            logging.info(f"📂 Collections existantes avant suppression : {collections}")
+            logging.info(f"Collections existantes avant suppression : {collections}")
 
             if collection_name not in collections:
-                logging.warning(f"⚠️ La collection '{collection_name}' n'existe pas, rien à supprimer.")
+                logging.warning(f"La collection '{collection_name}' n'existe pas, rien à supprimer.")
                 return {"warning": f"La collection '{collection_name}' n'existe pas."}
 
-            # Suppression de la collection
-            logging.info(f"🗑 Suppression de la collection '{collection_name}'...")
+            logging.info(f"Suppression de la collection '{collection_name}'...")
             self.db.drop_collection(collection_name)
             
-            # Vérification après suppression
             collections_after = self.db.list_collection_names()
-            logging.info(f"📂 Collections restantes après suppression : {collections_after}")
+            logging.info(f"Collections restantes après suppression : {collections_after}")
 
-            return {"message": f"Collection '{collection_name}' supprimée avec succès ✅"}
+            return {"message": f"Collection '{collection_name}' supprimée avec succès"}
         
         except Exception as e:
-            logging.error(f"❌ Erreur lors de la suppression de la collection '{collection_name}': {e}", exc_info=True)
+            logging.error(f"Erreur lors de la suppression de la collection '{collection_name}': {e}", exc_info=True)
             return {"error": str(e)}
 
 
@@ -230,13 +225,11 @@ class BackForDatabase:
 
     
     
-# 🎯 Initialisation avec l'URI Azure Cosmos DB
-MONGO_URI = "mongodb+srv://cyprien16112001mpt:<password>@cluster-projet-mlops-big-data-mpt.global.mongocluster.cosmos.azure.com/?tls=true&authMechanism=SCRAM-SHA-256&retrywrites=false&maxIdleTimeMS=120000"
-MONGO_URI = MONGO_URI.replace("<password>", PASSWORD_MONGO_URI)
+# Initialisation avec l'URI Cosmos DB
 backForDatabase = BackForDatabase(connection_uri=MONGO_URI)
 backForDatabase.connect_to_mongo()
 
-# 🎯 Création de l'API FastAPI
+# fastapi and endpoint creations, instanciations
 app = FastAPI()
 
 @app.get("/")
@@ -249,28 +242,7 @@ def hello_world():
 
 @app.post("/add_data")
 def add_data(documents: List[DocumentModel]):
-    if backForDatabase.client is None:
-        raise HTTPException(status_code=500, detail="Base de données non connectée")
-    
-    # Insertion des documents (repos GitHub)
-    inserted_data = backForDatabase.insert_documents([doc.dict() for doc in documents])
-
-    # Génération des objets DataIngestionDate avec la date par défaut
-    ingestion_dates = [
-        DataIngestionDate(id=doc.id, node_id=doc.node_id, ingestion_date=datetime.utcnow().isoformat())
-        for doc in documents
-    ]
-
-    # Insertion des dates d'ingestion
-    inserted_ingestion_date = backForDatabase.insert_ingestion_date([data.dict() for data in ingestion_dates])
-
-
-    return {
-        "message": "Données insérées",
-        "data": inserted_data,
-        "ingestion_data": inserted_ingestion_date
-    }
-
+    return adding_data_from_endpoint(documents)
 
 @app.get("/show_data")
 def show_data(page: int = 1, page_size: int = 10):
@@ -279,7 +251,7 @@ def show_data(page: int = 1, page_size: int = 10):
 
 @app.get("/count")
 def count_documents():
-    return backForDatabase.collection_data_ingestion.count_documents({})
+    return backForDatabase.collection.count_documents({})
 
 @app.get("/get_ingestion_date")
 def get_ingestion_date():
@@ -296,3 +268,82 @@ def delete_collection(collection_name: str):
         raise HTTPException(status_code=500, detail=result["error"])
     
     return result
+
+
+# function to add data from endpoint or kafka 
+def adding_data_from_endpoint(documents):
+    if backForDatabase.client is None:
+        raise HTTPException(status_code=500, detail="Base de données non connectée")
+    
+    inserted_data = backForDatabase.insert_documents([doc.dict() for doc in documents])
+
+    ingestion_dates = [
+        DataIngestionDate(id=doc.id, node_id=doc.node_id, ingestion_date=datetime.utcnow().isoformat())
+        for doc in documents
+    ]
+
+    # Insertion ingestion date
+    inserted_ingestion_date = backForDatabase.insert_ingestion_date([data.dict() for data in ingestion_dates])
+
+
+    return {
+        "message": "Données insérées",
+        "data": inserted_data,
+        "ingestion_data": inserted_ingestion_date
+    }
+
+def adding_data_from_kafka(msg):
+    try:
+        data = json.loads(msg.value().decode('utf-8'))
+        print("Message reçu :", data)
+
+        # Insert in MongoDB
+        if backForDatabase.client is None:
+            backForDatabase.insert_documents([data])
+            ingestion_data = DataIngestionDate(id=data["id"], node_id=data["node_id"]).dict()
+            backForDatabase.insert_ingestion_date([ingestion_data])
+        else:
+            return 
+
+    except json.JSONDecodeError:
+        print("Message reçu (non-JSON):", msg.value().decode('utf-8'))
+
+
+# Kafka consumer configuration 
+conf = {
+    'bootstrap.servers': KAFKA_BROKER,
+    'group.id': 'mon-groupe-consumer',
+    'auto.offset.reset': 'earliest', # param for reading from the beggining
+}
+
+consumer = Consumer(conf)
+consumer.subscribe([KAFKA_TOPIC])
+
+# Kafka Consumer in background
+def kafka_consumer():
+    """ Fonction pour consommer les messages Kafka et les insérer dans MongoDB """
+    try:
+        while True:
+            messages = consumer.consume(num_messages=1, timeout=10.0)
+            if not messages:
+                continue  # passive waiting
+
+            for msg in messages:
+                if msg.error():
+                    if msg.error().code() == KafkaError._PARTITION_EOF:
+                        print(f"Fin de partition {msg.topic()} [{msg.partition()}]")
+                    else:
+                        print(f"Erreur: {msg.error()}")
+                else:
+                    return adding_data_from_kafka(msg)
+
+    except KeyboardInterrupt:
+        print("Arrêt du consumer Kafka")
+    finally:
+        consumer.close()
+
+# Démarrer le consumer Kafka dans un thread
+kafka_thread = threading.Thread(target=kafka_consumer, daemon=True)
+kafka_thread.start()
+
+print("Consumer Kafka lancé en arrière-plan")

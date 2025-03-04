@@ -1,24 +1,27 @@
 volumes:
   mongo_data:
 services:
-  api-fastapi:
+  api-base-mongo:
+    restart: always
     build:
-      context: ./api-base-fastapi
+      context: ./api-base-mongo
       dockerfile: Dockerfile
     volumes:
       - /tmp:/tmp
     ports: 
-      - "8000:8000"
-    #depends-on:
-    # - mongo
+      - "8080:8080"
+    depends_on:
+      - mongodb
+
   api-github:
     build:
-      context: ./api-github
+      context: ./api-request-github
       dockerfile: Dockerfile
     volumes:
       - /tmp:/tmp
     ports:
       - "7000:7000"
+      
   mongodb:
     image: mongo
     restart: always
@@ -27,6 +30,7 @@ services:
     ports:
       - "8001:8001"
     command: ["mongod", "--port", "8001"]
+
 
   mongo-express:
     image: mongo-express
@@ -37,12 +41,30 @@ services:
       ME_CONFIG_MONGODB_SERVER: mongodb
       ME_CONFIG_MONGODB_PORT: 8001
       ME_CONFIG_BASICAUTH: false
-  kafka:
-    image: apache/kafka:latest
+      
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
     restart: always
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    restart: always
+    depends_on:
+      - zookeeper
     ports:
-      - "8082:8082"
-  train_model:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENERS: "LISTENER_LOCAL://0.0.0.0:9092,LISTENER_DOCKER://kafka:9093"
+      KAFKA_ADVERTISED_LISTENERS: "LISTENER_LOCAL://localhost:9092,LISTENER_DOCKER://kafka:9093"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "LISTENER_LOCAL:PLAINTEXT,LISTENER_DOCKER:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "LISTENER_DOCKER"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+train_model:
     image: ghcr.io/mlflow/mlflow:v2.20.2
     restart: always
     ports:
@@ -55,7 +77,7 @@ services:
     command: ["mlflow", "server", "--host", "0.0.0.0", "--port", "8083", "--artifacts-destination", "/mlruns"]
     volumes:
       - ./mlruns:/mlruns
-  model_serving:
+model_serving:
     restart: always
     build:
       context: ./src
