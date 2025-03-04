@@ -11,4 +11,7 @@ src/.env
 api-base-mongo/.ipynb_checkpoints/lib_mongoDB-checkpoint.py
 api-base-mongo/.env
 
+api-base-mongo/.ipynb_checkpoints/lib_mongoDB-checkpoint.py
+api-base-mongo/.env
+
 api-request-github/.env
