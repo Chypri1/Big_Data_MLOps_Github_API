@@ -13,7 +13,7 @@ services:
     depends_on:
       - mongodb
 
-  api-github:
+  api-request-github:
     build:
       context: ./api-request-github
       dockerfile: Dockerfile
@@ -28,8 +28,8 @@ services:
     volumes:
       - mongo_data:/data/db
     ports:
-      - "8001:8001"
-    command: ["mongod", "--port", "8001"]
+      - "27017:27017"
+    command: ["mongod", "--port", "27017"]
 
 
   mongo-express:
@@ -39,7 +39,7 @@ services:
       - "8081:8081"
     environment:
       ME_CONFIG_MONGODB_SERVER: mongodb
-      ME_CONFIG_MONGODB_PORT: 8001
+      ME_CONFIG_MONGODB_PORT: 27017
       ME_CONFIG_BASICAUTH: false
       
   zookeeper:
@@ -64,30 +64,28 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: "LISTENER_DOCKER"
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-train_model:
+
+  train_model:
     image: ghcr.io/mlflow/mlflow:v2.20.2
     restart: always
     ports:
       - "8083:8083"
-    env_file:
-      - .env
     environment:
-      - MLFLOW_TRACKING_URI=http://mlflow:8083
+      - MLFLOW_TRACKING_URI=http://localhost:8083
       - MLFLOW_ARTIFACT_URI=./mlruns
     command: ["mlflow", "server", "--host", "0.0.0.0", "--port", "8083", "--artifacts-destination", "/mlruns"]
     volumes:
-      - ./mlruns:/mlruns
-model_serving:
+      - ./train_model/mlruns:/mlruns
+
+  model_serving:
     restart: always
     build:
-      context: ./src
+      context: ./model_serving
       dockerfile: Dockerfile
     ports:
       - "8084:8084"
-    env_file:
-      - .env
     depends_on:
-      - mlflow
+      - train_model
     volumes:
-      - ./src/app.py:/app/app.py 
-      - ./mlruns:/mlruns
+      - ./model_serving/app.py:/app/app.py 
+      - ./train_model/mlruns:/mlruns

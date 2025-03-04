@@ -1,7 +1,0 @@
-fastapi
-uvicorn
-mlflow
-pandas
-pydantic
-requests
-dotenv
