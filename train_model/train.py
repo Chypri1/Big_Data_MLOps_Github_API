@@ -14,7 +14,7 @@ from mlflow.tracking import MlflowClient
 from fastapi import FastAPI
 
 
-URI_API_BASE_MONGO_DB = "URI_API_BASE_MONGO_DB"
+URI_API_BASE_MONGO_DB = os.getenv("URI_API_BASE_MONGO_DB")
 
 # Configuration MLflow
 mlflow.set_tracking_uri("http://mlflow:8083")
