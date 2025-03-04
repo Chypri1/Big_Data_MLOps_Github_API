@@ -6,8 +6,8 @@ WORKDIR /app
 
 # Copier les fichiers nécessaires
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
 RUN apt update && apt install curl -y
+RUN pip install --no-cache-dir -r requirements.txt
 # Copier le code source de l'API
 COPY . .
 

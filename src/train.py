@@ -13,7 +13,7 @@ from tqdm import tqdm
 from mlflow.tracking import MlflowClient
 
 # Configuration MLflow
-mlflow.set_tracking_uri("http://127.0.0.1:8083")
+mlflow.set_tracking_uri("http://mlflow:8083")
 client = MlflowClient()
 
 def get_model(model_name, **kwargs):
@@ -96,8 +96,6 @@ def train_log(df, model_name="gradient_boosting", epochs=10, alpha=2, beta=1, ga
             env_file.write(f"MODEL_NAME={model_name}\n")
 
         print(f"Nouvelle variable MODEL_NAME={model_name} enregistrée dans .env")
-        # Redémarrer le service MLflow Serving pour prendre en compte le nouveau modèle
-        os.system("docker-compose restart mlflow-serving")
 
     return acc
 

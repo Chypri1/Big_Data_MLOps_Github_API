@@ -42,18 +42,20 @@ services:
     restart: always
     ports:
       - "8082:8082"
-  mlflow:
+  train_model:
     image: ghcr.io/mlflow/mlflow:v2.20.2
     restart: always
     ports:
       - "8083:8083"
+    env_file:
+      - .env
     environment:
       - MLFLOW_TRACKING_URI=http://mlflow:8083
       - MLFLOW_ARTIFACT_URI=./mlruns
     command: ["mlflow", "server", "--host", "0.0.0.0", "--port", "8083", "--artifacts-destination", "/mlruns"]
     volumes:
       - ./mlruns:/mlruns
-  mlflow-predict:
+  model_serving:
     restart: always
     build:
       context: ./src
