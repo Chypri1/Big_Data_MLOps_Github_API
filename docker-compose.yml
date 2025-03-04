@@ -64,4 +64,30 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: "LISTENER_DOCKER"
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-
+train_model:
+    image: ghcr.io/mlflow/mlflow:v2.20.2
+    restart: always
+    ports:
+      - "8083:8083"
+    env_file:
+      - .env
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:8083
+      - MLFLOW_ARTIFACT_URI=./mlruns
+    command: ["mlflow", "server", "--host", "0.0.0.0", "--port", "8083", "--artifacts-destination", "/mlruns"]
+    volumes:
+      - ./mlruns:/mlruns
+model_serving:
+    restart: always
+    build:
+      context: ./src
+      dockerfile: Dockerfile
+    ports:
+      - "8084:8084"
+    env_file:
+      - .env
+    depends_on:
+      - mlflow
+    volumes:
+      - ./src/app.py:/app/app.py 
+      - ./mlruns:/mlruns

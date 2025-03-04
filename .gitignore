@@ -7,7 +7,7 @@ api.json
 api.github.com.yaml
 .DS_Store
 consigne.txt
-
+src/.env
 api-base-mongo/.ipynb_checkpoints/lib_mongoDB-checkpoint.py
 api-base-mongo/.env
 
