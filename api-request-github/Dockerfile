@@ -17,6 +17,6 @@ COPY . .
 RUN pip install python-dotenv
 
 # Exposer le port de l’API
-EXPOSE 80
+EXPOSE 7000
 
-CMD ["sh", "-c", "uvicorn --host 0.0.0.0 --port 80 appelGithub:app"]
+CMD ["sh", "-c", "uvicorn --host 0.0.0.0 --port 7000 appelGithub:app"]

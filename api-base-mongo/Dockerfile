@@ -8,6 +8,7 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Installer les dépendances Python
+
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copier le reste des fichiers de l'application
@@ -17,7 +18,7 @@ COPY . .
 RUN pip install python-dotenv
 
 # Exposer le port défini dans l’environnement
-EXPOSE 8888
+EXPOSE 8080
 
 # Lancer l'application avec Uvicorn en chargeant le .env
-CMD ["sh", "-c", "uvicorn --host 0.0.0.0 --port 8888 lib_mongoDB:app"]
+CMD ["sh", "-c", "uvicorn --host 0.0.0.0 --port 8080 lib_mongoDB:app"]
