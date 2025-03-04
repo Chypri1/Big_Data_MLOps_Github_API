@@ -3,12 +3,14 @@
 .ipynb_checkpoints/api-checkpoint.json
 .ipynb_checkpoints/BigDataMlOps2024-2025-checkpoint.pdf
 .ipynb_checkpoints/appelGithub-checkpoint.py
+api-base-mongo/.ipynb_checkpoints/lib_mongoDB-checkpoint.py
+
 api.json
 api.github.com.yaml
 .DS_Store
 consigne.txt
-model_serving/.env
-api-base-mongo/.ipynb_checkpoints/lib_mongoDB-checkpoint.py
-api-base-mongo/.env
 
+model_serving/.env
+api-base-mongo/.env
+train_model/.env
 api-request-github/.env
