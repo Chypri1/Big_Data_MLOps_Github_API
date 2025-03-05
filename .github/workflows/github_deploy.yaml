@@ -32,15 +32,16 @@ name: Build and deploy an app to AKS
 on:
   push:
     branches: ["main"]
-    paths: 
-      - '**/api-request-github/**'
-      - '**/api-base-mongo/**'
-      - '**/kafka-component/**'
+      paths: 
+        - '**/api-request-github/**'
+        - '**/api-base-mongo/**'
+        - '**/kafka-component/**'
+
   workflow_dispatch:
 
 env:
   AZURE_CONTAINER_REGISTRY: "AzureContainerRegistryMLopsMPT"
-  CONTAINER_NAME: "api-github-recup-data-auto-mpt"
+  CONTAINER_NAME: "api-request-github-recup-data-auto-mpt"
   RESOURCE_GROUP: "Projet_M2_MLOPS_MRO_PEN_TAN"
   #CLUSTER_NAME: "canada-central"
   #DEPLOYMENT_MANIFEST_PATH: "your-deployment-manifest-path"
@@ -69,6 +70,16 @@ jobs:
       - name: Build Docker image
         run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/api-request-github:latest ./api-request-github
 
+      - name: Versioning
+        run: |
+          VERSION_FILE=./api-request-github/version.txt
+          if [ ! -f "$VERSION_FILE" ]; then
+            echo "0" > $VERSION_FILE
+          fi
+          VERSION=$(cat $VERSION_FILE)
+          NEW_VERSION=VERSION+1
+          echo "$NEW_VERSION" > $VERSION_FILE
+
       - name: Push Docker image
         run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-request-github:latest
 
@@ -96,6 +107,16 @@ jobs:
       - name: Build Docker image
         run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/api-base-mongo:latest ./api-base-mongo
 
+      - name: Versioning
+        run: |
+          VERSION_FILE=./api-base-mongo/version.txt
+          if [ ! -f "$VERSION_FILE" ]; then
+            echo "0" > $VERSION_FILE
+          fi
+          VERSION=$(cat $VERSION_FILE)
+          NEW_VERSION=VERSION+1
+          echo "$NEW_VERSION" > $VERSION_FILE
+          
       - name: Push Docker image
         run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-base-mongo:latest
 
@@ -121,8 +142,19 @@ jobs:
 
       # Builds and pushes an image up to your Azure Container Registry
       - name: Build Docker image
-        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/kafka-image:latest ./kafkaimage
+        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/kafka-image:latest ./kafka-component
+      
+      - name: Versioning
+        run: |
+          VERSION_FILE=./kafka-component/version.txt
+          if [ ! -f "$VERSION_FILE" ]; then
+            echo "0" > $VERSION_FILE
+          fi
+          VERSION=$(cat $VERSION_FILE)
+          NEW_VERSION=VERSION+1
+          echo "$NEW_VERSION" > $VERSION_FILE
+          
       - name: Push Docker image
-        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/kafka-images:latest
+        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/kafka-image:latest
 
 
