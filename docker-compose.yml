@@ -13,7 +13,7 @@ services:
     depends_on:
       - mongodb
 
-  api-github:
+  api-request-github:
     build:
       context: ./api-request-github
       dockerfile: Dockerfile
@@ -28,8 +28,8 @@ services:
     volumes:
       - mongo_data:/data/db
     ports:
-      - "8001:8001"
-    command: ["mongod", "--port", "8001"]
+      - "27017:27017"
+    command: ["mongod", "--port", "27017"]
 
 
   mongo-express:
@@ -39,52 +39,63 @@ services:
       - "8081:8081"
     environment:
       ME_CONFIG_MONGODB_SERVER: mongodb
-      ME_CONFIG_MONGODB_PORT: 8001
+      ME_CONFIG_MONGODB_PORT: 27017
       ME_CONFIG_BASICAUTH: false
       
-  # zookeeper:
-  #   image: confluentinc/cp-zookeeper:latest
-  #   restart: always
-  #   environment:
-  #     ZOOKEEPER_CLIENT_PORT: 2181
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    restart: always
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
 
-  # kafka:
-  #   image: confluentinc/cp-kafka:latest
-  #   restart: always
-  #   depends_on:
-  #     - zookeeper
-  #   ports:
-  #     - "9092:9092"
-  #   environment:
-  #     KAFKA_BROKER_ID: 1
-  #     KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
-  #     KAFKA_LISTENERS: "LISTENER_LOCAL://0.0.0.0:9092,LISTENER_DOCKER://kafka:9093"
-  #     KAFKA_ADVERTISED_LISTENERS: "LISTENER_LOCAL://localhost:9092,LISTENER_DOCKER://kafka:9093"
-  #     KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "LISTENER_LOCAL:PLAINTEXT,LISTENER_DOCKER:PLAINTEXT"
-  #     KAFKA_INTER_BROKER_LISTENER_NAME: "LISTENER_DOCKER"
-  #     KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-  #     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    restart: always
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENERS: "LISTENER_LOCAL://0.0.0.0:9092,LISTENER_DOCKER://kafka:9093"
+      KAFKA_ADVERTISED_LISTENERS: "LISTENER_LOCAL://localhost:9092,LISTENER_DOCKER://kafka:9093"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "LISTENER_LOCAL:PLAINTEXT,LISTENER_DOCKER:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "LISTENER_DOCKER"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.20.2
+    restart: always
+    ports:
+      - "8083:8083"
+    environment:
+      - MLFLOW_TRACKING_URI=http://localhost:8083
+      - MLFLOW_ARTIFACT_URI=./mlruns
+    command: ["mlflow", "server", "--host", "0.0.0.0", "--port", "8083", "--artifacts-destination", "/mlruns"]
+    volumes:
+      - ./train_model/mlruns:/mlruns
+
+  model_serving:
+    restart: always
+    build:
+      context: ./model_serving
+      dockerfile: Dockerfile
+    ports:
+      - "8084:8084"
+    depends_on:
+      - mlflow
+    volumes:
+      - ./model_serving/app.py:/app/app.py 
+      - ./train_model/mlruns:/mlruns
 
   train_model:
-      image: ghcr.io/mlflow/mlflow:v2.20.2
-      restart: always
-      ports:
-        - "8083:8083"
-      environment:
-        - MLFLOW_TRACKING_URI=http://train_model:8083
-        - MLFLOW_ARTIFACT_URI=./mlruns
-      command: ["mlflow", "server", "--host", "0.0.0.0", "--port", "8083", "--artifacts-destination", "/mlruns"]
-      volumes:
-        - ./mlruns:/mlruns
-  model_serving:
-      restart: always
-      build:
-        context: ./src
-        dockerfile: Dockerfile
-      ports:
-        - "8084:8084"
-      depends_on:
-        - train_model
-      volumes:
-        - ./src/app.py:/app/app.py 
-        - ./mlruns:/mlruns
+    restart: always
+    build:
+      context: ./train_model
+      dockerfile: Dockerfile
+    ports:
+      - "8085:8085"
+    depends_on:
+      - mlflow

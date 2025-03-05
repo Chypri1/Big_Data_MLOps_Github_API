@@ -298,12 +298,13 @@ def adding_data_from_kafka(msg):
         print("Message reçu :", data)
 
         # Insert in MongoDB
-        if backForDatabase.client is None:
-            backForDatabase.insert_documents([data])
-            ingestion_data = DataIngestionDate(id=data["id"], node_id=data["node_id"]).dict()
-            backForDatabase.insert_ingestion_date([ingestion_data])
+        if not (backForDatabase.client is None):
+                backForDatabase.insert_documents([data])
+                ingestion_data = DataIngestionDate(id=data["id"], node_id=data["node_id"]).dict()
+                backForDatabase.insert_ingestion_date([ingestion_data])
+                return {"message":"BASE INSERER"}
         else:
-            return 
+            return {"message":"ERREUR INSERTION BASE"}
 
     except json.JSONDecodeError:
         print("Message reçu (non-JSON):", msg.value().decode('utf-8'))
@@ -324,7 +325,7 @@ def kafka_consumer():
     """ Fonction pour consommer les messages Kafka et les insérer dans MongoDB """
     try:
         while True:
-            messages = consumer.consume(num_messages=1, timeout=10.0)
+            messages = consumer.consume( timeout=5.0)
             if not messages:
                 continue  # passive waiting
 

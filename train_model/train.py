@@ -4,17 +4,26 @@ import mlflow
 import mlflow.sklearn
 import os
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, r2_score, accuracy_score
+from sklearn.metrics import accuracy_score
 import pandas as pd
 from models.gradient_boosting import GradientBoostingModel
 from models.random_forest import RandomForestModel
 import numpy as np
 from tqdm import tqdm  
 from mlflow.tracking import MlflowClient
+from fastapi import FastAPI
+from dotenv import load_dotenv
+
+# Charger les variables d'environnement
+load_dotenv()
+
+URI_API_BASE_MONGO_DB = os.getenv("URI_API_BASE_MONGO_DB")
+URI_MLFLOW = os.getenv("URI_MLFLOW")
 
 # Configuration MLflow
-mlflow.set_tracking_uri("http://localhost:8083")
+mlflow.set_tracking_uri(URI_MLFLOW)
 client = MlflowClient()
+
 
 def get_model(model_name, **kwargs):
     if model_name == "gradient_boosting":
@@ -93,3 +102,19 @@ def train_log(df, model_name="gradient_boosting", epochs=10, alpha=2, beta=1, ga
         print(f"Modèle {model_name} version {model_version.version} mis en production sur MLflow Serving!")
     return acc
 
+
+# Initialiser FastAPI
+app = FastAPI()
+
+@app.post("/train")
+def train(model_name = "random_forest"):
+    # revoir ça 
+    url = URI_API_BASE_MONGO_DB +"/count"
+    count = requests.get(url=url)
+    url = URI_API_BASE_MONGO_DB +"/show_data?page="+str(1)+"&page_size="+str(count)
+    repositories = requests.get(url=url)
+    
+    df = pd.DataFrame(repositories['data'])
+    acc = train_log(df,model_name=model_name,epochs=10, batch_size=256)
+    print(f"Modèle entraîné avec une accuracy de {acc}")
+    return acc

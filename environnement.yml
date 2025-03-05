@@ -1,0 +1,15 @@
+name: env_MPT
+channels:
+  - defaults
+dependencies:
+  - python=3.12
+  - numpy
+  - pandas
+  - scikit-learn
+  - pip
+  - seaborn
+  - matplotlib
+  - json
+  - requests
+  - pip:
+    - some_pip_package

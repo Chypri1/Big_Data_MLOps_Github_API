@@ -10,6 +10,7 @@ from threading import Lock
 
 # Charger les variables d'environnement
 load_dotenv()
+MODEL_NAME = os.getenv("MODEL_NAME")
 
 # Définir le client MLflow
 mlflow.set_tracking_uri("http://train_model:8083")
