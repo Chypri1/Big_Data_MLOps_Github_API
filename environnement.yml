@@ -1,4 +1,4 @@
-name: mon_environnement
+name: env_MPT
 channels:
   - defaults
 dependencies:

@@ -10,7 +10,7 @@ copier le contenu du .env.exemple pour chaque conf locale
 créer l'environnnemnt conda en se positionnant à la racine:
 ``` 
 conda env create -f environment.yml
-conda activate mon_environnement
+conda activate env_MPT
 ```
 
 
