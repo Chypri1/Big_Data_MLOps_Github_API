@@ -117,8 +117,8 @@ jobs:
           login-server: ${{ secrets.AZURE_REGISTRY_URL }}  # Votre ACR
           username: ${{ secrets.AZURE_REGISTRY_USERNAME }}
           password: ${{ secrets.AZURE_REGISTRY_PASSWORD }}
-          URI_MONGO: ${{ env.MONGO_URI }} 
-          
+          MONGO_URI: "${{ vars.MONGO_URI }}"
+
 
       # Builds and pushes an image up to your Azure Container Registry
       - name: Build Docker image
