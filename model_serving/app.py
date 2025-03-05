@@ -7,13 +7,14 @@ from mlflow.tracking import MlflowClient
 import pandas as pd
 from pydantic import BaseModel
 from threading import Lock
+import numpy as np
 
 # Charger les variables d'environnement
 load_dotenv()
 MODEL_NAME = os.getenv("MODEL_NAME")
-
+URI_MLFLOW = os.getenv("URI_MLFLOW")
 # Définir le client MLflow
-mlflow.set_tracking_uri("http://train_model:8083")
+mlflow.set_tracking_uri(URI_MLFLOW)
 client = MlflowClient()
 
 # Fonction pour récupérer le modèle
@@ -49,14 +50,16 @@ async def predict(input_data: InputData):
     df = pd.DataFrame(input_data.data)  # Convertir en DataFrame
     predictions = model.predict_proba(df)  # Faire une prédiction standard
 
-    # Obtenir les indices des classes avec la probabilité la plus élevée
-    predicted_classes = predictions.argmax(axis=1)  # axis=1 pour chaque ligne (chaque échantillon)
-    print("VASY",predicted_classes)
-    # Convertir les indices en labels
-    language_predictions = [labels[idx] for idx in predicted_classes]
+     # Obtenir les indices des 5 classes avec les plus grandes probabilités (triés par ordre décroissant)
+    top_5_indices = np.argsort(predictions, axis=1)[:, -5:][:, ::-1]  # On prend les 5 derniers et on les inverse
     
-    return {"predictions": predictions.tolist(), "language": language_predictions}
+    # Convertir ces indices en labels
+    top_5_labels = [[labels[idx] for idx in sample] for sample in top_5_indices]
+    
+    # Récupérer les valeurs des probabilités associées aux 5 meilleures classes
+    top_5_probas = [[predictions[i, idx] for idx in top_5_indices[i]] for i in range(len(predictions))]
 
+    return {"top_5_predictions": top_5_labels, "top_5_probabilities": top_5_probas}
 # 🔒 Verrou pour éviter plusieurs chargements simultanés
 model_lock = Lock()
 
