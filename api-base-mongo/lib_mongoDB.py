@@ -145,21 +145,32 @@ class BackForDatabase:
             return {"error": str(e)}
 
 
-    def display_documents(self, page: int = 1, page_size: int = 10):
-        """ Retourne les documents paginés de la collection """
+    def display_documents(self, page: int = 1, page_size: int = 10, date_begin: datetime = None, date_end: datetime = None):
+        """ Retourne les documents paginés de la collection entre deux dates """
         if self.collection is None:
             return {"error": "Collection non initialisée"}
-        
-        # Calculate offset
+
+        # Valeurs par défaut si les dates ne sont pas fournies
+        if date_begin is None:
+            date_begin = datetime.min
+        if date_end is None:
+            date_end = datetime.max
+
+        # Calcul du décalage pour la pagination
         skip = (page - 1) * page_size
 
         try:
-            cursor = self.collection.find({}, {"_id": 0}).skip(skip).limit(page_size)
+            # Filtrer par date et paginer les résultats
+            cursor = self.collection.find(
+                {"created_at": {"$gte": date_begin, "$lte": date_end}},
+                {"_id": 0}
+            ).skip(skip).limit(page_size)
+
             documents = list(cursor)
-            
-            # Count total documents for pagination
-            total_documents = self.collection.count_documents({})
-            total_pages = (total_documents + page_size - 1) // page_size  # Arrondi vers le haut
+
+            # Compter le nombre total de documents correspondant au filtre
+            total_documents = self.collection.count_documents({"created_at": {"$gte": date_begin, "$lte": date_end}})
+            total_pages = (total_documents + page_size - 1) // page_size
 
             return {
                 "page": page,
@@ -168,7 +179,7 @@ class BackForDatabase:
                 "total_documents": total_documents,
                 "data": documents
             }
-            
+
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -245,9 +256,9 @@ def add_data(documents: List[DocumentModel]):
     return adding_data_from_endpoint(documents)
 
 @app.get("/show_data")
-def show_data(page: int = 1, page_size: int = 10):
+def show_data(page: int = 1, page_size: int = 10,date = datetime.now()):
     """ Afficher les données avec pagination """
-    return backForDatabase.display_documents(page, page_size)
+    return backForDatabase.display_documents(page, page_size,date)
 
 @app.get("/count")
 def count_documents():
