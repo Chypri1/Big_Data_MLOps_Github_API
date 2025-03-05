@@ -45,7 +45,7 @@ env:
 
 jobs:
   buildAndDeployGithub:
-    if: contains(github.event.head_commit.modified, 'api-request-github/')
+    # if: contains(github.event.head_commit.modified, 'api-request-github/')
     permissions:
       contents: read
       id-token: write
@@ -100,67 +100,67 @@ jobs:
 #   #DEPLOYMENT_MANIFEST_PATH: "your-deployment-manifest-path"
 
 # jobs:
-#   buildAndDeployMongoApi:
-#     if: contains(github.event.head_commit.modified, 'api-base-mongo/')
-#     permissions:
-#       contents: read
-#       id-token: write
-#     runs-on: ubuntu-latest
-#     steps:
-#       # Checks out the repository this file is in
-#       - uses: actions/checkout@v4
+  buildAndDeployMongoApi:
+    # if: contains(github.event.head_commit.modified, 'api-base-mongo/')
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      # Checks out the repository this file is in
+      - uses: actions/checkout@v4
 
-#       # Logs in with your Azure credentials
-#       - name: Azure login
-#         uses: azure/docker-login@v1
-#         with:
-#           login-server: ${{ secrets.AZURE_REGISTRY_URL }}  # Votre ACR
-#           username: ${{ secrets.AZURE_REGISTRY_USERNAME }}
-#           password: ${{ secrets.AZURE_REGISTRY_PASSWORD }}
+      # Logs in with your Azure credentials
+      - name: Azure login
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.AZURE_REGISTRY_URL }}  # Votre ACR
+          username: ${{ secrets.AZURE_REGISTRY_USERNAME }}
+          password: ${{ secrets.AZURE_REGISTRY_PASSWORD }}
 
 
-#       # Builds and pushes an image up to your Azure Container Registry
-#       - name: Build Docker image
-#         run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/api-base-mongo:latest ./api-base-mongo
+      # Builds and pushes an image up to your Azure Container Registry
+      - name: Build Docker image
+        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/api-base-mongo:latest ./api-base-mongo
       
-#       - name: Versioning
-#         run: |
-#           VERSION_FILE=./api-base-mongo/version.txt
-#           if [ ! -f "$VERSION_FILE" ]; then
-#             echo "0" > $VERSION_FILE
-#           fi
-#           VERSION=$(cat $VERSION_FILE)
-#           NEW_VERSION=VERSION+1
-#           echo "$NEW_VERSION" > $VERSION_FILE
+      - name: Versioning
+        run: |
+          VERSION_FILE=./api-base-mongo/version.txt
+          if [ ! -f "$VERSION_FILE" ]; then
+            echo "0" > $VERSION_FILE
+          fi
+          VERSION=$(cat $VERSION_FILE)
+          NEW_VERSION=VERSION+1
+          echo "$NEW_VERSION" > $VERSION_FILE
       
-#       - name: Push Docker image
-#         run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-base-mongo:latest
+      - name: Push Docker image
+        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-base-mongo:latest
 
 
-#   buildAndDeployKafka:
-#     if: contains(github.event.head_commit.modified, 'kafka-component/')
-#     permissions:
-#       contents: read
-#       id-token: write
-#     runs-on: ubuntu-latest
-#     steps:
-#       # Checks out the repository this file is in
-#       - uses: actions/checkout@v4
+  buildAndDeployKafka:
+    # if: contains(github.event.head_commit.modified, 'kafka-component/')
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      # Checks out the repository this file is in
+      - uses: actions/checkout@v4
 
-#       # Logs in with your Azure credentials
-#       - name: Azure login
-#         uses: azure/docker-login@v1
-#         with:
-#           login-server: ${{ secrets.AZURE_REGISTRY_URL }}  # Votre ACR
-#           username: ${{ secrets.AZURE_REGISTRY_USERNAME }}
-#           password: ${{ secrets.AZURE_REGISTRY_PASSWORD }}
+      # Logs in with your Azure credentials
+      - name: Azure login
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.AZURE_REGISTRY_URL }}  # Votre ACR
+          username: ${{ secrets.AZURE_REGISTRY_USERNAME }}
+          password: ${{ secrets.AZURE_REGISTRY_PASSWORD }}
 
 
-#       # Builds and pushes an image up to your Azure Container Registry
-#       - name: Build Docker image
-#         run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/kafka-image:latest ./kafkaimage
-#       - name: Push Docker image
-#         run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/kafka-images:latest
+      # Builds and pushes an image up to your Azure Container Registry
+      - name: Build Docker image
+        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/kafka-image:latest ./kafkaimage
+      - name: Push Docker image
+        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/kafka-images:latest
 
 
 # name: Build and deploy a kafka app to AKS
@@ -181,39 +181,39 @@ jobs:
 #   #DEPLOYMENT_MANIFEST_PATH: "your-deployment-manifest-path"
 
 # jobs:
-#   buildAndDeployKafka:
-#     if: contains(github.event.head_commit.modified, 'kafka-component/')
-#     permissions:
-#       contents: read
-#       id-token: write
-#     runs-on: ubuntu-latest
-#     steps:
-#       # Checks out the repository this file is in
-#       - uses: actions/checkout@v4
+  buildAndDeployKafka:
+    # if: contains(github.event.head_commit.modified, 'kafka-component/')
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      # Checks out the repository this file is in
+      - uses: actions/checkout@v4
 
-#       # Logs in with your Azure credentials
-#       - name: Azure login
-#         uses: azure/docker-login@v1
-#         with:
-#           login-server: ${{ secrets.AZURE_REGISTRY_URL }}  # Votre ACR
-#           username: ${{ secrets.AZURE_REGISTRY_USERNAME }}
-#           password: ${{ secrets.AZURE_REGISTRY_PASSWORD }}
+      # Logs in with your Azure credentials
+      - name: Azure login
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.AZURE_REGISTRY_URL }}  # Votre ACR
+          username: ${{ secrets.AZURE_REGISTRY_USERNAME }}
+          password: ${{ secrets.AZURE_REGISTRY_PASSWORD }}
 
 
-#       # Builds and pushes an image up to your Azure Container Registry
-#       - name: Build Docker image
-#         run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/kafka-component:latest ./kafka-component
+      # Builds and pushes an image up to your Azure Container Registry
+      - name: Build Docker image
+        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/kafka-component:latest ./kafka-component
       
-#       - name: Versioning
-#         run: |
-#           VERSION_FILE=./kafka-component/version.txt
-#           if [ ! -f "$VERSION_FILE" ]; then
-#             echo "0" > $VERSION_FILE
-#           fi
-#           VERSION=$(cat $VERSION_FILE)
-#           NEW_VERSION=VERSION+1
-#           echo "$NEW_VERSION" > $VERSION_FILE
+      - name: Versioning
+        run: |
+          VERSION_FILE=./kafka-component/version.txt
+          if [ ! -f "$VERSION_FILE" ]; then
+            echo "0" > $VERSION_FILE
+          fi
+          VERSION=$(cat $VERSION_FILE)
+          NEW_VERSION=VERSION+1
+          echo "$NEW_VERSION" > $VERSION_FILE
       
-#       - name: Push Docker image
-#         run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/kafka-component:latest
+      - name: Push Docker image
+        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/kafka-component:latest
 
