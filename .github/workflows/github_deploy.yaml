@@ -135,6 +135,8 @@ jobs:
       
       - name: Push Docker image
         run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-base-mongo:latest
+        env:
+          MONGO_URI: "${{ vars.MONGO_URI }}"
 
 
   buildAndDeployKafka:
