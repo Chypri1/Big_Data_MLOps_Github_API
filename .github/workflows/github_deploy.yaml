@@ -47,7 +47,7 @@ env:
 
 jobs:
   buildAndDeployGithub:
-    if: contains(github.event.head_commit.modified, 'api-github/')
+    if: contains(github.event.head_commit.modified, 'api--request-github/')
     permissions:
       contents: read
       id-token: write
@@ -67,14 +67,14 @@ jobs:
 
       # Builds and pushes an image up to your Azure Container Registry
       - name: Build Docker image
-        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/api-github:latest ./api-github
+        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/api-request-github:latest ./api-request-github
 
       - name: Push Docker image
-        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-github:latest
+        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-request-github:latest
 
 
   buildAndDeployFastapi:
-    if: contains(github.event.head_commit.modified, 'api-base-fastapi/')
+    if: contains(github.event.head_commit.modified, 'api-base-mongo/')
     permissions:
       contents: read
       id-token: write
@@ -94,10 +94,10 @@ jobs:
 
       # Builds and pushes an image up to your Azure Container Registry
       - name: Build Docker image
-        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/api-fastapi:latest ./api-base-fastapi
+        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/api-base-mongo:latest ./api-base-mongo
 
       - name: Push Docker image
-        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-fastapi:latest
+        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-base-mongo:latest
 
 
   buildAndDeployKafka:
