@@ -18,7 +18,7 @@ URI_MONGO_DB = os.getenv("URI_API_BASE_MONGO_DB")
 API_KEY_GH = os.getenv("API_KEY_GH")
 KAFKA_BROKER = os.getenv("KAFKA_BROKER")
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC")
-
+ENV = os.getenv("ENV")
 
 class OwnerModel(BaseModel):
     login: str
@@ -151,14 +151,16 @@ def recup_auto():
 
                     if URI_MONGO_DB:
                         # option 1 with call to kafka queue (for local deployement)
-                        # for doc in repos:
-                        #    message = json.dumps(doc)  # Convertir en JSON
-                        #    producer.produce(KAFKA_TOPIC, key=str(doc.id), value=message, callback=delivery_report)
-                        #producer.flush()
+                        if(ENV == "LOCAL"):
+                            for doc in repos:
+                                message = json.dumps(doc)  # Convertir en JSON
+                                producer.produce(KAFKA_TOPIC, key=str(doc.id), value=message, callback=delivery_report)
+                            producer.flush()
 
                         # option 2 with direct call to api-base-mongo (for azure deployement)
-                        response = requests.post(f"{URI_MONGO_DB}/add_data", json=repos)
-                        logger.info(f"POST vers MongoDB: {response.status_code}")
+                        else:
+                            response = requests.post(f"{URI_MONGO_DB}/add_data", json=repos)
+                            logger.info(f"POST vers MongoDB: {response.status_code}")
 
                     res.extend(repos)
 
@@ -193,11 +195,14 @@ def send_to_kafka(year, month, day):
 
         if URI_MONGO_DB:
             for doc in repos:
-                message = json.dumps(doc)  # Convert to JSON
-                response = producer.produce(KAFKA_TOPIC, key=str(doc["id"]), value=message, callback=delivery_report)
+                    # Conversion du dictionnaire en objet DocumentModel
+                    document = DocumentModel(**doc)
+                    # Sérialisation en JSON
+                    message = document.json()  
+                    # Envoi à Kafka
+                    producer.produce(KAFKA_TOPIC, key=str(document.id), value=message, callback=delivery_report)
+                
             producer.flush()
-
-        return {"message": response}
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur serveur : {str(e)}")
