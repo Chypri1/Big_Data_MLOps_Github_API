@@ -118,8 +118,8 @@ jobs:
           username: ${{ secrets.AZURE_REGISTRY_USERNAME }}
           password: ${{ secrets.AZURE_REGISTRY_PASSWORD }}
           MONGO_URI: "${{ vars.MONGO_URI }}"
-
-
+      - name: printenv 
+        run: printenv
       # Builds and pushes an image up to your Azure Container Registry
       - name: Build Docker image
         run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/api-base-mongo:latest ./api-base-mongo
