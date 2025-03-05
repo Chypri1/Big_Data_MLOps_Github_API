@@ -359,3 +359,4 @@ kafka_thread = threading.Thread(target=kafka_consumer, daemon=True)
 kafka_thread.start()
 
 print("Consumer Kafka lancé en arrière-plan")
+
