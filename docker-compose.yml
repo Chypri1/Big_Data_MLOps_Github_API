@@ -65,7 +65,7 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
-  train_model:
+  mlflow:
     image: ghcr.io/mlflow/mlflow:v2.20.2
     restart: always
     ports:
@@ -85,7 +85,17 @@ services:
     ports:
       - "8084:8084"
     depends_on:
-      - train_model
+      - mlflow
     volumes:
       - ./model_serving/app.py:/app/app.py 
       - ./train_model/mlruns:/mlruns
+
+  train_model:
+    restart: always
+    build:
+      context: ./train_model
+      dockerfile: Dockerfile
+    ports:
+      - "8085:8085"
+    depends_on:
+      - mlflow
