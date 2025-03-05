@@ -12,7 +12,7 @@ from threading import Lock
 load_dotenv()
 
 # Définir le client MLflow
-mlflow.set_tracking_uri("http://mlflow:8083")
+mlflow.set_tracking_uri("http://train_model:8083")
 client = MlflowClient()
 
 # Fonction pour récupérer le modèle
@@ -23,15 +23,15 @@ def load_model():
 
     stage = "Production"
     latest_model = client.get_latest_versions(model_name, stages=[stage])[0]
-    model = mlflow.pyfunc.load_model(latest_model.source)
+    model = mlflow.sklearn.load_model(latest_model.source)
     print(f"✅ Modèle chargé depuis {latest_model.source}")
     return model, model_name, latest_model.source
 
 # Charger initialement le modèle
-model, MODEL_NAME, model_source = load_model()
+model, model_name, model_source = load_model()
 
 # Charger les labels associés
-labels_path = f"./{MODEL_NAME}_labels.json"
+labels_path = f"./{model_name}_labels.json"
 with open(labels_path, "r") as f:
     labels = json.load(f)
 
@@ -46,16 +46,22 @@ class InputData(BaseModel):
 @app.post("/predict")
 async def predict(input_data: InputData):
     df = pd.DataFrame(input_data.data)  # Convertir en DataFrame
-    predictions = model.predict(df)  # Faire une prédiction
-    language_predictions = [labels[p] for p in predictions]
-    return {"predictions": language_predictions}  # Retourner en JSON
+    predictions = model.predict_proba(df)  # Faire une prédiction standard
+
+    # Obtenir les indices des classes avec la probabilité la plus élevée
+    predicted_classes = predictions.argmax(axis=1)  # axis=1 pour chaque ligne (chaque échantillon)
+    print("VASY",predicted_classes)
+    # Convertir les indices en labels
+    language_predictions = [labels[idx] for idx in predicted_classes]
+    
+    return {"predictions": predictions.tolist(), "language": language_predictions}
 
 # 🔒 Verrou pour éviter plusieurs chargements simultanés
 model_lock = Lock()
 
 @app.post("/reload")
 async def reload_model():
-    global model, MODEL_NAME, model_source
+    global model, model_name, model_source
     with model_lock:
-        model, MODEL_NAME, model_source = load_model()
+        model, model_name, model_source = load_model()
     return {"message": f"✅ Modèle rechargé depuis {model_source}"}

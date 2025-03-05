@@ -1,0 +1,15 @@
+artifact_uri: mlflow-artifacts:/830273103893990900/865c00ff3ec44776a3ffa258f56a4d91/artifacts
+end_time: 1741172677923
+entry_point_name: ''
+experiment_id: '830273103893990900'
+lifecycle_stage: active
+run_id: 865c00ff3ec44776a3ffa258f56a4d91
+run_name: beautiful-goose-119
+run_uuid: 865c00ff3ec44776a3ffa258f56a4d91
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1741172592814
+status: 3
+tags: []
+user_id: a052080

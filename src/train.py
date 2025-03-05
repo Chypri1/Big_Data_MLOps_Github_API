@@ -13,7 +13,7 @@ from tqdm import tqdm
 from mlflow.tracking import MlflowClient
 
 # Configuration MLflow
-mlflow.set_tracking_uri("http://mlflow:8083")
+mlflow.set_tracking_uri("http://localhost:8083")
 client = MlflowClient()
 
 def get_model(model_name, **kwargs):
@@ -42,11 +42,11 @@ def train_log(df, model_name="gradient_boosting", epochs=10, alpha=2, beta=1, ga
     """Entraîne le modèle avec mini-batches et log les résultats sur MLflow avec une barre de progression."""
     mlflow.set_experiment(f"Train {model_name}")
     model = get_model(model_name, lr=0.01, n_estimators=10)
+    
     df = prepare_data(model, df, alpha, beta, gamma)
     X = df.drop(columns=["language"])
     y = df["language"]
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, shuffle=True)
-
     num_batches = int(np.ceil(len(X_train) / batch_size))
     X_batches = [X_train[i * batch_size:(i + 1) * batch_size] for i in range(num_batches)]
     y_batches = [y_train[i * batch_size:(i + 1) * batch_size] for i in range(num_batches)]
@@ -91,11 +91,5 @@ def train_log(df, model_name="gradient_boosting", epochs=10, alpha=2, beta=1, ga
             stage="Production"
         )
         print(f"Modèle {model_name} version {model_version.version} mis en production sur MLflow Serving!")
-
-        with open("../.env", "w") as env_file:
-            env_file.write(f"MODEL_NAME={model_name}\n")
-
-        print(f"Nouvelle variable MODEL_NAME={model_name} enregistrée dans .env")
-
     return acc
 
