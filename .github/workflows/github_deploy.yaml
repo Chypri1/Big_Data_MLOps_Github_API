@@ -32,11 +32,12 @@ name: Build and deploy an app to AKS
 on:
   push:
     branches: ["main"]
-      paths: 
-        - '**/api-request-github/**'
-        - '**/api-base-mongo/**'
-        - '**/kafka-component/**'
-
+    branches-ignore:
+    paths: 
+      - '**/api-request-github/**'
+      - '**/api-base-mongo/**'
+      - '**/kafka-component/**'
+    paths-ignore:
   workflow_dispatch:
 
 env:
