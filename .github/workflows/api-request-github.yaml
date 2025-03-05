@@ -1,0 +1,37 @@
+name: Build and Deploy API Request Github
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - 'api-request-github/**'
+  workflow_dispatch:
+
+env:
+  AZURE_CONTAINER_REGISTRY: "AzureContainerRegistryMLopsMPT"
+  RESOURCE_GROUP: "Projet_M2_MLOPS_MRO_PEN_TAN"
+  CLUSTER_NAME: "canada-central"
+  DEPLOYMENT_MANIFEST_PATH: "k8s/api-request-github-deployment.yaml"
+
+jobs:
+  buildAndDeploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Azure login
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.AZURE_REGISTRY_URL }}
+          username: ${{ secrets.AZURE_REGISTRY_USERNAME }}
+          password: ${{ secrets.AZURE_REGISTRY_PASSWORD }}
+      - name: Build and Push Docker image
+        run: |
+          docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/api-request-github:${{ github.sha }} ./api-request-github
+          docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-request-github:${{ github.sha }}
+      - name: Update Kubernetes Deployment
+        run: |
+          sed -i 's|image: .*/api-request-github:.*|image: ${{ secrets.AZURE_REGISTRY_URL }}/api-request-github:${{ github.sha }}|' $DEPLOYMENT_MANIFEST_PATH
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+          git commit -am "Update image tag for api-request-github"
+          git push
