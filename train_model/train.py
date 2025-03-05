@@ -12,12 +12,16 @@ import numpy as np
 from tqdm import tqdm  
 from mlflow.tracking import MlflowClient
 from fastapi import FastAPI
+from dotenv import load_dotenv
 
+# Charger les variables d'environnement
+load_dotenv()
 
 URI_API_BASE_MONGO_DB = os.getenv("URI_API_BASE_MONGO_DB")
+URI_MLFLOW = os.getenv("URI_MLFLOW")
 
 # Configuration MLflow
-mlflow.set_tracking_uri("http://mlflow:8083")
+mlflow.set_tracking_uri(URI_MLFLOW)
 client = MlflowClient()
 
 
@@ -108,9 +112,8 @@ def train_log(df, model_name="gradient_boosting", epochs=10, alpha=2, beta=1, ga
 # Initialiser FastAPI
 app = FastAPI()
 
-
-@app.get("/train")
-def train():
+@app.post("/train")
+def train(model_name = "random_forest"):
     # revoir ça 
     url = URI_API_BASE_MONGO_DB +"/count"
     count = requests.get(url=url)
@@ -118,5 +121,6 @@ def train():
     repositories = requests.get(url=url)
     
     df = pd.DataFrame(repositories['data'])
-    acc = train_log(df,model_name="random_forest",epochs=10, batch_size=256)
+    acc = train_log(df,model_name=model_name,epochs=10, batch_size=256)
     print(f"Modèle entraîné avec une accuracy de {acc}")
+    return acc

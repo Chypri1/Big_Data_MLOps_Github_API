@@ -195,11 +195,14 @@ def send_to_kafka(year, month, day):
 
         if URI_MONGO_DB:
             for doc in repos:
-                message = json.dumps(doc)  # Convert to JSON
-                response = producer.produce(KAFKA_TOPIC, key=str(doc["id"]), value=message, callback=delivery_report)
+                    # Conversion du dictionnaire en objet DocumentModel
+                    document = DocumentModel(**doc)
+                    # Sérialisation en JSON
+                    message = document.json()  
+                    # Envoi à Kafka
+                    producer.produce(KAFKA_TOPIC, key=str(document.id), value=message, callback=delivery_report)
+                
             producer.flush()
-
-        return {"message": response}
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur serveur : {str(e)}")
