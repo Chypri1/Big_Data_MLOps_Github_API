@@ -2,6 +2,7 @@ import threading
 import json
 from confluent_kafka import Consumer, KafkaError
 from pymongo import MongoClient
+import pymongo
 from fastapi import FastAPI, HTTPException
 from typing import List
 from pydantic import BaseModel
@@ -17,6 +18,7 @@ load_dotenv()
 MONGO_URI = os.getenv("MONGO_URI")
 KAFKA_BROKER = os.getenv("KAFKA_BROKER")
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC")
+ENV = os.getenv("ENV")
 
 class OwnerModel(BaseModel):
     login: str
@@ -61,7 +63,7 @@ class BackForDatabase:
     def connect_to_mongo(self):
         """ Connexion à MongoDB (Azure Cosmos DB API Mongo) """
         try:
-            self.client = MongoClient(self.connection_uri, serverSelectionTimeoutMS=5000)
+            self.client = MongoClient(MONGO_URI)
             self.db = self.client[self.database_name]
             self.collection = self.db[self.collection_name]
             self.collection_data_ingestion = self.db[self.collection_data_ingestion_name]
@@ -74,47 +76,26 @@ class BackForDatabase:
             print(f"Erreur de connexion : {e}")
             self.client = None  
 
-    from pymongo.errors import PyMongoError
-
     def insert_documents(self, documents: List[dict]):
-        """ Insère plusieurs documents dans MongoDB et gère les erreurs de format de date """
+        """ Insère plusieurs documents dans MongoDB et recrée la collection si elle n'existe pas """
         if self.collection is None or self.collection_name not in self.db.list_collection_names():
-            print(f"Collection '{self.collection_name}' absente. Création en cours...")
-            self.collection = self.db[self.collection_name]  # Creating collection
-            print(f"Collection '{self.collection_name}' créée avec succès.")
+            print(f"⚠️ Collection '{self.collection_name}' absente. Création en cours...")
+            self.collection = self.db[self.collection_name]  # Réassignation de la collection
+            print(f"✅ Collection '{self.collection_name}' créée avec succès.")
 
         try:
-            # Vérify to not have duplicate docs 
             existing_names = {doc["name"] for doc in self.collection.find({}, {"name": 1})}
-            documents_to_insert = []
+            documents_to_insert = [doc for doc in documents if doc["name"] not in existing_names]
 
-            for doc in documents:
-                if doc["name"] in existing_names:
-                    print(f"Le document '{doc['name']}' existe déjà, il ne sera pas inséré.")
-                    continue
-
-                # Vérify et convert dates (created_at, updated_at, pushed_at)
-                for field in ["created_at", "updated_at", "pushed_at"]:
-                    if field in doc and doc[field] is not None:
-                        try:
-                            if isinstance(doc[field], str):  
-                                doc[field] = datetime.fromisoformat(doc[field].replace("Z", "+00:00"))
-                        except ValueError:
-                            print(f"Erreur de format pour '{field}' dans le document '{doc['name']}', valeur ignorée.")
-                            doc[field] = None  
-
-                documents_to_insert.append(doc)
-
-            # Database insertion
             if documents_to_insert:
                 result = self.collection.insert_many(documents_to_insert)
-                inserted_ids = [str(_id) for _id in result.inserted_ids]
-                return {"inserted_ids": inserted_ids, "message": "Insertion réussie"}
+                inserted_ids = [str(_id) for _id in result.inserted_ids]  # Convertir ObjectId en string
+                return {"inserted_ids": inserted_ids, "message": "Insertion réussie ✅"}
 
             return {"message": "Aucun nouveau document à insérer."}
 
-        except PyMongoError as e:
-            print(f"Erreur MongoDB lors de l'insertion : {e}")
+        except Exception as e:
+            print(f"❌ Erreur lors de l'insertion : {e}")
             import traceback
             traceback.print_exc()
             return {"error": str(e)}
@@ -152,24 +133,23 @@ class BackForDatabase:
 
         # Valeurs par défaut si les dates ne sont pas fournies
         if date_begin is None:
-            date_begin = datetime.min
+            date_begin = datetime(2000, 1, 1)  # 1er Janvier 2000
         if date_end is None:
-            date_end = datetime.max
+            date_end = datetime.now()
 
         # Calcul du décalage pour la pagination
         skip = (page - 1) * page_size
 
         try:
             # Filtrer par date et paginer les résultats
-            cursor = self.collection.find(
-                {"created_at": {"$gte": date_begin, "$lte": date_end}},
-                {"_id": 0}
+            cursor = self.collection.find({}, {"_id": 0}
+                # {"created_at": {"$gte": date_begin, "$lte": date_end}},
             ).skip(skip).limit(page_size)
 
             documents = list(cursor)
 
             # Compter le nombre total de documents correspondant au filtre
-            total_documents = self.collection.count_documents({"created_at": {"$gte": date_begin, "$lte": date_end}})
+            total_documents = self.collection.count_documents({})
             total_pages = (total_documents + page_size - 1) // page_size
 
             return {
@@ -281,27 +261,29 @@ def delete_collection(collection_name: str):
     return result
 
 
-# function to add data from endpoint or kafka 
 def adding_data_from_endpoint(documents):
-    if backForDatabase.client is None:
+    if not backForDatabase.client or not backForDatabase.client.admin.command('ping'):
         raise HTTPException(status_code=500, detail="Base de données non connectée")
+
+    if not documents:
+        return {"message": "Aucun document à insérer"}
+
+    try:
+        inserted_data = backForDatabase.insert_documents([doc.dict() for doc in documents])
+        ingestion_dates = [
+            DataIngestionDate(id=doc.id, node_id=doc.node_id, ingestion_date=datetime.utcnow().isoformat())
+            for doc in documents
+        ]
+        inserted_ingestion_date = backForDatabase.insert_ingestion_date([data.dict() for data in ingestion_dates])
+
+        return {
+            "message": "Données insérées",
+            "data": inserted_data,
+            "ingestion_data": inserted_ingestion_date
+        }
     
-    inserted_data = backForDatabase.insert_documents([doc.dict() for doc in documents])
-
-    ingestion_dates = [
-        DataIngestionDate(id=doc.id, node_id=doc.node_id, ingestion_date=datetime.utcnow().isoformat())
-        for doc in documents
-    ]
-
-    # Insertion ingestion date
-    inserted_ingestion_date = backForDatabase.insert_ingestion_date([data.dict() for data in ingestion_dates])
-
-
-    return {
-        "message": "Données insérées",
-        "data": inserted_data,
-        "ingestion_data": inserted_ingestion_date
-    }
+    except pymongo.errors.PyMongoError as e:
+        raise HTTPException(status_code=500, detail=f"Erreur MongoDB: {str(e)}")
 
 def adding_data_from_kafka(msg):
     try:
@@ -321,42 +303,45 @@ def adding_data_from_kafka(msg):
         print("Message reçu (non-JSON):", msg.value().decode('utf-8'))
 
 
-# Kafka consumer configuration 
-conf = {
-    'bootstrap.servers': KAFKA_BROKER,
-    'group.id': 'mon-groupe-consumer',
-    'auto.offset.reset': 'earliest', # param for reading from the beggining
-}
 
-consumer = Consumer(conf)
-consumer.subscribe([KAFKA_TOPIC])
 
-# Kafka Consumer in background
-def kafka_consumer():
-    """ Fonction pour consommer les messages Kafka et les insérer dans MongoDB """
-    try:
-        while True:
-            messages = consumer.consume( timeout=5.0)
-            if not messages:
-                continue  # passive waiting
+if(ENV == "LOCAL"):
+    # Kafka consumer configuration 
+    conf = {
+        'bootstrap.servers': KAFKA_BROKER,
+        'group.id': 'mon-groupe-consumer',
+        'auto.offset.reset': 'earliest', # param for reading from the beggining
+    }
 
-            for msg in messages:
-                if msg.error():
-                    if msg.error().code() == KafkaError._PARTITION_EOF:
-                        print(f"Fin de partition {msg.topic()} [{msg.partition()}]")
+    consumer = Consumer(conf)
+    consumer.subscribe([KAFKA_TOPIC])
+
+    # Kafka Consumer in background
+    def kafka_consumer():
+        """ Fonction pour consommer les messages Kafka et les insérer dans MongoDB """
+        try:
+            while True:
+                messages = consumer.consume( timeout=5.0)
+                if not messages:
+                    continue  # passive waiting
+
+                for msg in messages:
+                    if msg.error():
+                        if msg.error().code() == KafkaError._PARTITION_EOF:
+                            print(f"Fin de partition {msg.topic()} [{msg.partition()}]")
+                        else:
+                            print(f"Erreur: {msg.error()}")
                     else:
-                        print(f"Erreur: {msg.error()}")
-                else:
-                    return adding_data_from_kafka(msg)
+                        return adding_data_from_kafka(msg)
 
-    except KeyboardInterrupt:
-        print("Arrêt du consumer Kafka")
-    finally:
-        consumer.close()
+        except KeyboardInterrupt:
+            print("Arrêt du consumer Kafka")
+        finally:
+            consumer.close()
+    # Démarrer le consumer Kafka dans un thread
+    kafka_thread = threading.Thread(target=kafka_consumer, daemon=True)
+    kafka_thread.start()
+    
 
-# Démarrer le consumer Kafka dans un thread
-kafka_thread = threading.Thread(target=kafka_consumer, daemon=True)
-kafka_thread.start()
-
-print("Consumer Kafka lancé en arrière-plan")
+    print("Consumer Kafka lancé en arrière-plan")
 
