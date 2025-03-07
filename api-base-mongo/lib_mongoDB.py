@@ -126,16 +126,10 @@ class BackForDatabase:
             return {"error": str(e)}
 
 
-    def display_documents(self, page: int = 1, page_size: int = 10, date_begin: datetime = None, date_end: datetime = None):
+    def display_documents(self, page: int = 1, page_size: int = 10):
         """ Retourne les documents paginés de la collection entre deux dates """
         if self.collection is None:
             return {"error": "Collection non initialisée"}
-
-        # Valeurs par défaut si les dates ne sont pas fournies
-        if date_begin is None:
-            date_begin = datetime(2000, 1, 1)  # 1er Janvier 2000
-        if date_end is None:
-            date_end = datetime.now()
 
         # Calcul du décalage pour la pagination
         skip = (page - 1) * page_size
@@ -236,9 +230,9 @@ def add_data(documents: List[DocumentModel]):
     return adding_data_from_endpoint(documents)
 
 @app.get("/show_data")
-def show_data(page: int = 1, page_size: int = 10,date = datetime.now()):
+def show_data(page: int = 1, page_size: int = 10):
     """ Afficher les données avec pagination """
-    return backForDatabase.display_documents(page, page_size,date)
+    return backForDatabase.display_documents(page, page_size)
 
 @app.get("/count")
 def count_documents():
