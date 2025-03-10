@@ -19,7 +19,6 @@ from typing import Optional, Dict
 # Charger les variables d'environnement
 load_dotenv()
 
-URI_API_BASE_MONGO_DB = os.getenv("URI_API_BASE_MONGO_DB")
 URI_MLFLOW = os.getenv("URI_MLFLOW")
 
 # Configuration MLflow
@@ -107,23 +106,6 @@ def train_log(df, model_name="gradient_boosting", epochs=10, batch_size=32, lr=0
 
 
     return acc, latest_version
-
-
-
-
-def get_call(paths,url=URI_API_BASE_MONGO_DB, params=None, header=None):
-    url = f"{url}/{paths}"
-    response = requests.get(url, params=params, headers=header)
-    if response.status_code == 200:
-        return response.json()
-    elif response.status_code == 403:
-        print("Error lors de la récupération de donnée ")
-        response = requests.get(url, params=params, headers=header)
-        return response.json()
-    else:
-        print(f"Error: {response.status_code} - {response.json().get('message', 'Unknown error')}")
-        return None
-
 
 # Initialiser FastAPI
 app = FastAPI()
