@@ -100,7 +100,13 @@ def train_log(df, model_name="gradient_boosting", epochs=10, batch_size=32, lr=0
 
         # Enregistrement du modèle
         mlflow.sklearn.log_model(model.model, artifact_path=artifact_path, registered_model_name=model_name)
-    return acc
+
+        # Récupérer la version du modèle
+        model_versions = client.search_model_versions(f"name='{model_name}'")
+        latest_version = max([int(v.version) for v in model_versions])
+
+
+    return acc, latest_version
 
 
 
@@ -125,50 +131,31 @@ app = FastAPI()
 
 class InputData(BaseModel):
     model_name: str
-    page_size: int
-    page: int
+    data: list
     epochs: int
     batch_size: int
     metrics: Optional[Dict[str, float]] = {"lr": 0.01, "n_estimators": 100}
 
 @app.post("/train")
 def train(inputData: InputData):
-    model_name, page_size, page, epochs, batch_size, metrics = (
+    model_name, epochs, batch_size, metrics, data = (
         inputData.model_name,
-        inputData.page_size,
-        inputData.page,
         inputData.epochs,
         inputData.batch_size,
-        inputData.metrics if inputData.metrics else {"lr": 0.01, "n_estimators": 100},  # Valeurs par défaut si None
+        inputData.metrics if inputData.metrics else {"lr": 0.01, "n_estimators": 100},
+        inputData.data,
     )
-
-    repositories = get_call(paths="show_data",params={"page_size":page_size,"page": page})
-    if repositories:
-        print("Done")
-    df_new = pd.DataFrame(repositories['data'])
-    df_new = df_new[['name', 'full_name', 'description', 'stargazers_count', 'watchers_count', 'forks_count', 'created_at', 'updated_at', 'language']]
-    df_new = df_new.dropna(subset=['created_at', 'language'])
-    df_new['created_at'] = df_new['created_at'].astype(str)  
-    df_new['created_at'] = df_new['created_at'].apply(lambda x: x + "Z" if not x.endswith("Z") else x)
-
-    try:
-        df_old = pd.read_pickle("historique.pkl")
-    except FileNotFoundError:
-        df_old = pd.DataFrame()
-
-    df = pd.concat([df_old, df_new]).drop_duplicates(subset=['created_at'])
-    df.to_pickle('historique.pkl')
-
-    acc = train_log(
+    df = pd.DataFrame(data)
+    acc, version = train_log(
         df,
         model_name=model_name,
         epochs=epochs,
         batch_size=batch_size,
         lr=metrics['lr'],
-        n_estimators=metrics["n_estimators"]
+        n_estimators=int(metrics["n_estimators"])
     )
 
-    return (f"Modèle entraîné avec une accuracy de {acc}")
+    return (f"Modèle {model_name} Version : {version} enregistré Modèle entraîné avec une accuracy de {acc}")
 
 @app.post("/model-stage")
 def production(model_name: str, version: str, stage: str):

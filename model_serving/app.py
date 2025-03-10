@@ -1,5 +1,6 @@
 import json
 import os
+from typing import Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI
 import mlflow.pyfunc
@@ -53,16 +54,20 @@ def prepare_data(df):
 
 class InputData(BaseModel):
     model_name: str
-    model_version: str
+    model_version: Optional[str] = None
     data: list
 
 # Endpoint de prédiction
 @app.post("/predict")
 async def predict(input_data: InputData):
+    model_name, model_version, data = (
+        input_data.model_name,
+        input_data.model_version if input_data.model_version else None,
+        input_data.data
+    )
     with model_lock:
-        model, labels = load_model(input_data.model_name, input_data.model_version)
-
-    data = prepare_data(input_data.data)
+        model, labels = load_model(model_name, model_version)
+    data = prepare_data(data)
     predictions = model.predict_proba(data)
 
     # Récupération du top 5 par repo
