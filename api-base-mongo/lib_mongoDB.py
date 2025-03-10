@@ -221,10 +221,6 @@ app = FastAPI()
 def base():
     return {"message": "Client connecté !" if backForDatabase.client else "Client non connecté !"}
 
-@app.get("/hello_world")
-def hello_world():
-    return {"message": "Hello, world!"}
-
 @app.post("/add_data")
 def add_data(documents: List[DocumentModel]):
     return adding_data_from_endpoint(documents)
