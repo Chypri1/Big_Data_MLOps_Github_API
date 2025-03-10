@@ -113,3 +113,11 @@ jobs:
         run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-base-mongo:latest
         env:
           MONGO_URI: "${{ vars.MONGO_URI }}"
+          
+      - name: Commit version file
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add version.txt
+          git commit -m "Update version to $new_version"
+          git push
