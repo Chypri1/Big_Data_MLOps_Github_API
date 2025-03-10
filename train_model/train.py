@@ -137,7 +137,7 @@ def train(inputData: InputData):
         n_estimators=int(metrics["n_estimators"])
     )
 
-    return (f"Modèle {model_name} Version : {version} enregistré Modèle entraîné avec une accuracy de {acc}")
+    return model_name,version
 
 @app.post("/model-stage")
 def production(model_name: str, version: str, stage: str):
