@@ -8,64 +8,78 @@ import pandas as pd
 from pydantic import BaseModel
 from threading import Lock
 import numpy as np
+from collections import defaultdict
+from sklearn.preprocessing import LabelEncoder
 
 # Charger les variables d'environnement
 load_dotenv()
-MODEL_NAME = os.getenv("MODEL_NAME")
-URI_MLFLOW = os.getenv("URI_MLFLOW")
-# Définir le client MLflow
-mlflow.set_tracking_uri(URI_MLFLOW)
+mlflow.set_tracking_uri(os.getenv("URI_MLFLOW"))
 client = MlflowClient()
 
-# Fonction pour récupérer le modèle
-def load_model():
-    model_name = os.getenv("MODEL_NAME")
-    if not model_name:
-        raise ValueError("❌ La variable d'environnement MODEL_NAME est introuvable dans .env")
-
-    stage = "Production"
-    latest_model = client.get_latest_versions(model_name, stages=[stage])[0]
-    model = mlflow.sklearn.load_model(latest_model.source)
-    print(f"✅ Modèle chargé depuis {latest_model.source}")
-    return model, model_name, latest_model.source
-
-# Charger initialement le modèle
-model, model_name, model_source = load_model()
-
-# Charger les labels associés
-labels_path = f"./{model_name}_labels.json"
-with open(labels_path, "r") as f:
-    labels = json.load(f)
-
-# Initialiser FastAPI
-app = FastAPI(title="ML Model API", description="API pour faire des prédictions avec MLflow", version="1.0")
-
-# Définir un schéma pour les données entrantes
-class InputData(BaseModel):
-    data: list  # Liste d'observations sous forme de listes
-
-# Endpoint pour faire des prédictions
-@app.post("/predict")
-async def predict(input_data: InputData):
-    df = pd.DataFrame(input_data.data)  # Convertir en DataFrame
-    predictions = model.predict_proba(df)  # Faire une prédiction standard
-
-     # Obtenir les indices des 5 classes avec les plus grandes probabilités (triés par ordre décroissant)
-    top_5_indices = np.argsort(predictions, axis=1)[:, -5:][:, ::-1]  # On prend les 5 derniers et on les inverse
+# Fonction pour charger le modèle et ses labels
+def load_model(name="gradient_boosting", version=None):
+    model_version = client.get_model_version(name, str(version)) if version else client.get_latest_versions(name, stages=["Production"])[0]
+    model = mlflow.sklearn.load_model(model_version.source)
     
-    # Convertir ces indices en labels
-    top_5_labels = [[labels[idx] for idx in sample] for sample in top_5_indices]
+    # Charger les labels depuis l'artefact
+    try:
+        labels_path = mlflow.artifacts.download_artifacts(f"{model_version.source}/labels.json")
+        with open(labels_path, "r") as f:
+            labels = json.load(f)["labels"]
+    except Exception:
+        labels = None
     
-    # Récupérer les valeurs des probabilités associées aux 5 meilleures classes
-    top_5_probas = [[predictions[i, idx] for idx in top_5_indices[i]] for i in range(len(predictions))]
+    return model, labels
 
-    return {"top_5_predictions": top_5_labels, "top_5_probabilities": top_5_probas}
-# 🔒 Verrou pour éviter plusieurs chargements simultanés
+app = FastAPI()
 model_lock = Lock()
 
-@app.post("/reload")
-async def reload_model():
-    global model, model_name, model_source
+# Préparer les données
+def prepare_data(df):
+    df = pd.DataFrame(df).dropna(subset=["language", "created_at"])
+    df["created_at"] = pd.to_datetime(df["created_at"])
+    df["year"], df["month"], df["week"], df["day"] = df["created_at"].dt.year, df["created_at"].dt.month, df["created_at"].dt.isocalendar().week, df["created_at"].dt.day
+
+    df = df.groupby(["year", "month", "week", "day", "language"]).agg(
+        number_repos=("name", "count"),
+        mean_fork=("forks_count", "mean"),
+        mean_watched=("watchers_count", "mean"),
+        mean_star=("stargazers_count", "mean")
+    ).reset_index()
+
+    df["var_repos"] = df.groupby("language")["number_repos"].diff().fillna(0)
+
+    return df.drop(columns=["language"])
+
+class InputData(BaseModel):
+    model_name: str
+    model_version: str
+    data: list
+
+# 🔮 Endpoint de prédiction
+@app.post("/predict")
+async def predict(input_data: InputData):
     with model_lock:
-        model, model_name, model_source = load_model()
-    return {"message": f"✅ Modèle rechargé depuis {model_source}"}
+        model, labels = load_model(input_data.model_name, input_data.model_version)
+
+    data = prepare_data(input_data.data)
+    predictions = model.predict_proba(data)
+
+    # Récupération du top 5 par repo
+    top_5_indices = np.argsort(predictions, axis=1)[:, -5:][:, ::-1]
+    top_5_labels = [[labels[idx] for idx in sample] for sample in top_5_indices]
+    top_5_probas = [[predictions[i, idx] for idx in sample] for i, sample in enumerate(top_5_indices)]
+
+    # Agrégation pour un top 5 global
+    global_probs = defaultdict(float)
+    for preds, probs in zip(top_5_labels, top_5_probas):
+        for lang, prob in zip(preds, probs):
+            global_probs[lang] += prob
+
+    top_5_global = sorted(global_probs.items(), key=lambda x: x[1], reverse=True)[:5]
+
+    return {
+        "top 5 des langages qui croissent le plus": [
+            {"langage": lang, "probabilité": prob} for lang, prob in top_5_global
+        ]
+    }

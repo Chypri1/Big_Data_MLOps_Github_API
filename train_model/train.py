@@ -4,7 +4,7 @@ import mlflow
 import mlflow.sklearn
 import os
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, f1_score
 import pandas as pd
 from models.gradient_boosting import GradientBoostingModel
 from models.random_forest import RandomForestModel
@@ -13,6 +13,8 @@ from tqdm import tqdm
 from mlflow.tracking import MlflowClient
 from fastapi import FastAPI
 from dotenv import load_dotenv
+from pydantic import BaseModel
+from typing import Optional, Dict
 
 # Charger les variables d'environnement
 load_dotenv()
@@ -33,26 +35,34 @@ def get_model(model_name, **kwargs):
     else:
         raise ValueError(f"Modèle {model_name} inconnu !")
 
-def prepare_data(model, df, alpha, beta, gamma):
-    """Prépare les données en encodant les labels."""
+def prepare_data(model, df):
+    """Prépare les données en encodant la date et les indicateurs d'utilisation."""
+    # Supprimer les lignes sans langage
     df = df.dropna(subset=["language"])
-    language = df["language"]
-    df = df[df.columns[df.dtypes != "object"]]
-    df["trend_score"] = (
-        alpha * df["stargazers_count"] + 
-        beta * df["forks_count"] + 
-        gamma * df["watchers_count"]
-    )
-    df["language"] = model.encoder.fit_transform(language)
+    df = df.dropna(subset=['created_at'])
+    df['created_at'] = pd.to_datetime(df['created_at'])
+    df['year'] = df['created_at'].dt.year
+    df['month'] = df['created_at'].dt.month
+    df['week'] = df['created_at'].dt.isocalendar().week
+    df['day'] = df['created_at'].dt.day
+    df = df.groupby(['year', 'month', 'week', 'day', 'language']).agg(
+        number_repos=('name', 'count'),
+        mean_fork=('forks_count', 'mean'),
+        mean_watched=('watchers_count', 'mean'),
+        mean_star=('stargazers_count', 'mean')
+    ).reset_index()
+    df['var_repos'] = df.groupby('language')['number_repos'].diff().fillna(0)
+    # Encodage du langage
+    df["language"] = model.encoder.fit_transform(df["language"])
     model.labels = model.encoder.classes_
     return df
 
-def train_log(df, model_name="gradient_boosting", epochs=10, alpha=2, beta=1, gamma=0.7, batch_size=32):
+
+def train_log(df, model_name="gradient_boosting", epochs=10, batch_size=32, lr=0.01, n_estimators=10):
     """Entraîne le modèle avec mini-batches et log les résultats sur MLflow avec une barre de progression."""
     mlflow.set_experiment(f"Train {model_name}")
-    model = get_model(model_name, lr=0.01, n_estimators=10)
-    
-    df = prepare_data(model, df, alpha, beta, gamma)
+    model = get_model(model_name, lr=lr, n_estimators=n_estimators)
+    df = prepare_data(model, df)
     X = df.drop(columns=["language"])
     y = df["language"]
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, shuffle=True)
@@ -69,52 +79,94 @@ def train_log(df, model_name="gradient_boosting", epochs=10, alpha=2, beta=1, ga
         mlflow.log_param("batch_size", batch_size)
 
         for epoch in tqdm(range(1, epochs + 1), desc="📈 Entraînement des epochs"):
-            print(f"\n🔄 Epoch {epoch}/{epochs}...")
+            print(f"\nEpoch {epoch}/{epochs}...")
             for X_batch, y_batch in zip(X_batches, y_batches):
                 model.train(X_batch, y_batch)
 
             y_pred = model.predict(X_test)
             acc = accuracy_score(y_test, y_pred)
-
             mlflow.log_metric("accuracy", acc, step=epoch)
-            print(f"🎯 Accuracy: {acc:.4f}")
+            print(f"Accuracy: {acc:.4f}")
+
+            f1 = f1_score(y_test, y_pred, average='weighted')
+            mlflow.log_metric("f1_score", f1, step=epoch)
+            print(f"FSCORE = {f1}")
  
         # Enregistrement du modèle et Ajout du modèle à Model Registry
-        # Sauvegarde des labels dans un fichier JSON
-        labels_path = f"{model_name}_labels.json"
-        with open(labels_path, "w") as f:
-            json.dump(model.labels.tolist(), f)
+        artifact_path = f"{model_name}_model"
 
-        # Log des labels en tant qu'artifact MLflow
-        mlflow.log_artifact(labels_path, artifact_path="labels")
-        mlflow.sklearn.log_model(model.model, artifact_path=f"{model_name}_model",registered_model_name=model_name)
+        # Sauvegarde des labels en tant qu'artefact 
+        mlflow.log_dict({"labels": model.labels.tolist()}, artifact_file=f"{artifact_path}/labels.json")
 
-        model_uri = f"runs:/{run.info.run_id}/{model_name}_model"
-
-        model_version = client.create_model_version(name=model_name, source=model_uri, run_id=run.info.run_id)
-        print(f"✅ Modèle {model_name} enregistré en version {model_version.version}")
-        #Mise en production automatique du modèle
-        client.transition_model_version_stage(
-            name=model_name,
-            version=model_version.version,
-            stage="Production"
-        )
-        print(f"Modèle {model_name} version {model_version.version} mis en production sur MLflow Serving!")
+        # Enregistrement du modèle
+        mlflow.sklearn.log_model(model.model, artifact_path=artifact_path, registered_model_name=model_name)
     return acc
+
+
+
+
+def get_call(paths,url=URI_API_BASE_MONGO_DB, params=None, header=None):
+    url = f"{url}/{paths}"
+    response = requests.get(url, params=params, headers=header)
+    if response.status_code == 200:
+        return response.json()
+    elif response.status_code == 403:
+        print("Error lors de la récupération de donnée ")
+        response = requests.get(url, params=params, headers=header)
+        return response.json()
+    else:
+        print(f"Error: {response.status_code} - {response.json().get('message', 'Unknown error')}")
+        return None
 
 
 # Initialiser FastAPI
 app = FastAPI()
 
+
+class InputData(BaseModel):
+    model_name: str
+    page_size: int
+    page: int
+    epochs: int
+    batch_size: int
+    metrics: Optional[Dict[str, float]] = {"lr": 0.01, "n_estimators": 100}
+
 @app.post("/train")
-def train(model_name = "random_forest"):
-    # revoir ça 
-    url = URI_API_BASE_MONGO_DB +"/count"
-    count = requests.get(url=url)
-    url = URI_API_BASE_MONGO_DB +"/show_data?page="+str(1)+"&page_size="+str(count)
-    repositories = requests.get(url=url)
-    
-    df = pd.DataFrame(repositories['data'])
-    acc = train_log(df,model_name=model_name,epochs=10, batch_size=256)
+def train(inputData: InputData):
+    model_name, page_size, page, epochs, batch_size, metrics = (
+        inputData.model_name,
+        inputData.page_size,
+        inputData.page,
+        inputData.epochs,
+        inputData.batch_size,
+        inputData.metrics if inputData.metrics else {"lr": 0.01, "n_estimators": 100},  # Valeurs par défaut si None
+    )
+
+    repositories = get_call(paths="show_data",params={"page_size":page_size,"page": page})
+    if repositories:
+        print("Done")
+    df_new = pd.DataFrame(repositories['data'])
+    df_new = df_new[['name', 'full_name', 'description', 'stargazers_count', 'watchers_count', 'forks_count', 'created_at', 'updated_at', 'language']]
+    df_new = df_new.dropna(subset=['created_at', 'language'])
+    df_new['created_at'] = df_new['created_at'].astype(str)  
+    df_new['created_at'] = df_new['created_at'].apply(lambda x: x + "Z" if not x.endswith("Z") else x)
+
+    try:
+        df_old = pd.read_pickle("historique.pkl")
+    except FileNotFoundError:
+        df_old = pd.DataFrame()
+
+    df = pd.concat([df_old, df_new]).drop_duplicates(subset=['created_at'])
+    df.to_pickle('historique.pkl')
+
+    acc = train_log(
+        df,
+        model_name=model_name,
+        epochs=epochs,
+        batch_size=batch_size,
+        lr=metrics['lr'],
+        n_estimators=metrics["n_estimators"]
+    )
+
     print(f"Modèle entraîné avec une accuracy de {acc}")
-    return acc
+    return {"accuracy": acc}
