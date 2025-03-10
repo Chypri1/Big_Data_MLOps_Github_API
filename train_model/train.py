@@ -78,7 +78,7 @@ def train_log(df, model_name="gradient_boosting", epochs=10, batch_size=32, lr=0
         mlflow.log_param("epochs", epochs)
         mlflow.log_param("batch_size", batch_size)
 
-        for epoch in tqdm(range(1, epochs + 1), desc="📈 Entraînement des epochs"):
+        for epoch in tqdm(range(1, epochs + 1), desc="Entraînement des epochs"):
             print(f"\nEpoch {epoch}/{epochs}...")
             for X_batch, y_batch in zip(X_batches, y_batches):
                 model.train(X_batch, y_batch)
@@ -168,5 +168,17 @@ def train(inputData: InputData):
         n_estimators=metrics["n_estimators"]
     )
 
-    print(f"Modèle entraîné avec une accuracy de {acc}")
-    return {"accuracy": acc}
+    return (f"Modèle entraîné avec une accuracy de {acc}")
+
+@app.post("/model-stage")
+def production(model_name: str, version: str, stage: str):
+    """Met en production la version du modèle donnée en paramètre"""
+    try:
+        client.transition_model_version_stage(
+            name=model_name,
+            version=version,
+            stage=stage
+        )
+        return {"message": f"Modèle {model_name} version {version} en staging {stage}."}
+    except Exception as e:
+        return {"error": f"Une erreur s'est produite lors du changement de staging : {str(e)}"}

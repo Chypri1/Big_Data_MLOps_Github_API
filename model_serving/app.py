@@ -56,7 +56,7 @@ class InputData(BaseModel):
     model_version: str
     data: list
 
-# 🔮 Endpoint de prédiction
+# Endpoint de prédiction
 @app.post("/predict")
 async def predict(input_data: InputData):
     with model_lock:
