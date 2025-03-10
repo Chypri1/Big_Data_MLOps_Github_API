@@ -40,30 +40,28 @@ env:
   #CLUSTER_NAME: "canada-central"
   #DEPLOYMENT_MANIFEST_PATH: "your-deployment-manifest-path"
 
+#Liste des différents intégrés dans le workflow
 jobs:
   buildAndDeployGithub:
-    # if: contains(github.event.head_commit.modified, 'api-request-github/')
     permissions:
       contents: read
       id-token: write
     runs-on: ubuntu-latest
     steps:
-      # Checks out the repository this file is in
       - uses: actions/checkout@v4
 
-      # Logs in with your Azure credentials
       - name: Azure login
         uses: azure/docker-login@v1
         with:
-          login-server: ${{ secrets.AZURE_REGISTRY_URL }}  # Votre ACR
+          login-server: ${{ secrets.AZURE_REGISTRY_URL }} 
           username: ${{ secrets.AZURE_REGISTRY_USERNAME }}
           password: ${{ secrets.AZURE_REGISTRY_PASSWORD }}
 
-
-      # Builds and pushes an image up to your Azure Container Registry
+      # compiler l'image Docker
       - name: Build Docker image
         run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/api-request-github:latest ./api-request-github
       
+      # Créer un fichier de versionning si il n'existe pas, l'incrémenter sinon
       - name: Versioning
         run: |
           VERSION_FILE=./api-request-github/version.txt
@@ -74,9 +72,22 @@ jobs:
           NEW_VERSION=VERSION+1
           echo "$NEW_VERSION" > $VERSION_FILE
       
+      # Ajouter le fichier de versionning au repo et le pousser
+      - name: Commit version file
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add ./api-request-github/version.txt
+          git commit -m "Update version to $new_version"
+          git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }} HEAD:main
+      
       - name: Push Docker image
         run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-request-github:latest
 
+      
+# Même étapes pour l'API mongoDB
   buildAndDeployMongoApi:
     permissions:
       contents: read
@@ -108,8 +119,20 @@ jobs:
           VERSION=$(cat $VERSION_FILE)
           NEW_VERSION=VERSION+1
           echo "$NEW_VERSION" > $VERSION_FILE
+
+      - name: Commit version file
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add ./api-base-mongo/version.txt
+          git commit -m "Update version to $new_version"
+          git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }} HEAD:main
       
       - name: Push Docker image
         run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-base-mongo:latest
         env:
           MONGO_URI: "${{ vars.MONGO_URI }}"
+
+      
