@@ -118,6 +118,6 @@ jobs:
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add $(echo VERSION_FILE)
+          git add ./api-base-mongo/version.txt
           git commit -m "Update version to $new_version"
           git push
