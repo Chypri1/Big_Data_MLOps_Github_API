@@ -116,28 +116,3 @@ jobs:
         run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-base-mongo:latest
         env:
           MONGO_URI: "${{ vars.MONGO_URI }}"
-
-
-  buildAndDeployKafka:
-    permissions:
-      contents: read
-      id-token: write
-    runs-on: ubuntu-latest
-    steps:
-      # Checks out the repository this file is in
-      - uses: actions/checkout@v4
-
-      # Logs in with your Azure credentials
-      - name: Azure login
-        uses: azure/docker-login@v1
-        with:
-          login-server: ${{ secrets.AZURE_REGISTRY_URL }}  # Votre ACR
-          username: ${{ secrets.AZURE_REGISTRY_USERNAME }}
-          password: ${{ secrets.AZURE_REGISTRY_PASSWORD }}
-
-
-      # Builds and pushes an image up to your Azure Container Registry
-      - name: Build Docker image
-        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/kafka-image:latest ./kafkaimage
-      - name: Push Docker image
-        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/kafka-images:latest
