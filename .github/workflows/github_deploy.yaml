@@ -73,9 +73,6 @@ jobs:
           VERSION=$(cat $VERSION_FILE)
           NEW_VERSION=VERSION+1
           echo "$NEW_VERSION" > $VERSION_FILE
-      
-      - name: Push Docker image
-        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-request-github:latest
 
       - name: Commit version file
         env:
@@ -87,6 +84,11 @@ jobs:
           git add ./api-request-github/version.txt
           git commit -m "Update version to $new_version"
           git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }} HEAD:main
+      
+      - name: Push Docker image
+        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-request-github:latest
+
+      
 
   buildAndDeployMongoApi:
     permissions:
@@ -119,11 +121,6 @@ jobs:
           VERSION=$(cat $VERSION_FILE)
           NEW_VERSION=VERSION+1
           echo "$NEW_VERSION" > $VERSION_FILE
-      
-      - name: Push Docker image
-        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-base-mongo:latest
-        env:
-          MONGO_URI: "${{ vars.MONGO_URI }}"
 
       - name: Commit version file
         env:
@@ -134,3 +131,10 @@ jobs:
           git add ./api-base-mongo/version.txt
           git commit -m "Update version to $new_version"
           git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }} HEAD:main
+      
+      - name: Push Docker image
+        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-base-mongo:latest
+        env:
+          MONGO_URI: "${{ vars.MONGO_URI }}"
+
+      
