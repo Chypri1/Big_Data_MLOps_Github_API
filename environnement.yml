@@ -10,6 +10,6 @@ dependencies:
   - seaborn=0.13.2
   - requests=2.32.3
   - ipykernel=6.29.5 
-pip:
-    - matplotlib=3.10.0
-    - json
+  - pip:
+    - matplotlib==3.10.0
+    - confluent-kafka==2.8.2

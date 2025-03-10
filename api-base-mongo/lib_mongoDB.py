@@ -11,6 +11,7 @@ import os
 import logging
 from dotenv import load_dotenv
 from typing import Optional
+import time
 
 # Charger les variables d’environnement
 load_dotenv()
@@ -20,13 +21,11 @@ KAFKA_BROKER = os.getenv("KAFKA_BROKER")
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC")
 ENV = os.getenv("ENV")
 
-# Modèle de données d'un propriétaire de repo
 class OwnerModel(BaseModel):
     login: str
     id: int
     html_url: str
 
-# Modèle de données d'un repo
 class DocumentModel(BaseModel):
     id: int
     node_id: str
@@ -45,14 +44,12 @@ class DocumentModel(BaseModel):
     stargazers_count: int
     watchers_count: int
     open_issues_count: int
-
-# Modèle de données pour une date d'ingestion
+    
 class DataIngestionDate (BaseModel):
     id: int
     node_id: str
     ingestion_date: str = datetime.utcnow().isoformat()
 
-# Classe pour la gestion de la BDD
 class BackForDatabase:
     def __init__(self, connection_uri, database_name="my_database", collection_name="my_collection", collection_data_ingestion_name = "my_ingestion_data_collection"):
         self.connection_uri = connection_uri
@@ -83,23 +80,23 @@ class BackForDatabase:
     def insert_documents(self, documents: List[dict]):
         """ Insère plusieurs documents dans MongoDB et recrée la collection si elle n'existe pas """
         if self.collection is None or self.collection_name not in self.db.list_collection_names():
-            print(f"Collection '{self.collection_name}' absente. Création en cours...")
+            print(f"⚠️ Collection '{self.collection_name}' absente. Création en cours...")
             self.collection = self.db[self.collection_name]  # Réassignation de la collection
-            print(f"Collection '{self.collection_name}' créée avec succès.")
+            print(f"✅ Collection '{self.collection_name}' créée avec succès.")
 
         try:
-            existing_names = {doc["name"] for doc in self.collection.find({}, {"name": 1})}
-            documents_to_insert = [doc for doc in documents if doc["name"] not in existing_names]
+            existing_names = {doc['name'] for doc in self.collection.find({}, {'name': 1})}
+            documents_to_insert = [doc for doc in documents if doc['name'] not in existing_names]
 
             if documents_to_insert:
                 result = self.collection.insert_many(documents_to_insert)
                 inserted_ids = [str(_id) for _id in result.inserted_ids]  # Convertir ObjectId en string
-                return {"inserted_ids": inserted_ids, "message": "Insertion réussie"}
+                return {"inserted_ids": inserted_ids, "message": "Insertion réussie ✅"}
 
             return {"message": "Aucun nouveau document à insérer."}
 
         except Exception as e:
-            print(f"Erreur lors de l'insertion : {e}")
+            print(f"❌ Erreur lors de l'insertion : {e}")
             import traceback
             traceback.print_exc()
             return {"error": str(e)}
@@ -209,91 +206,6 @@ class BackForDatabase:
             logging.error(f"Erreur lors de la suppression de la collection '{collection_name}': {e}", exc_info=True)
             return {"error": str(e)}
 
-# Connexion et insertion des données dans la BDD avec ajout de la date d'ingestion
-def adding_data_from_endpoint(documents):
-    if not backForDatabase.client or not backForDatabase.client.admin.command('ping'):
-        raise HTTPException(status_code=500, detail="Base de données non connectée")
-
-    if not documents:
-        return {"message": "Aucun document à insérer"}
-
-    try:
-        inserted_data = backForDatabase.insert_documents([doc.dict() for doc in documents])
-        ingestion_dates = [
-            DataIngestionDate(id=doc.id, node_id=doc.node_id, ingestion_date=datetime.utcnow().isoformat())
-            for doc in documents
-        ]
-        inserted_ingestion_date = backForDatabase.insert_ingestion_date([data.dict() for data in ingestion_dates])
-
-        return {
-            "message": "Données insérées",
-            "data": inserted_data,
-            "ingestion_data": inserted_ingestion_date
-        }
-    
-    except pymongo.errors.PyMongoError as e:
-        raise HTTPException(status_code=500, detail=f"Erreur MongoDB: {str(e)}")
-
-# Récupération de données dans kafka et insertion dans la base
-def adding_data_from_kafka(msg):
-    try:
-        data = json.loads(msg.value().decode('utf-8'))
-        print("Message reçu :", data)
-
-        # Insert in MongoDB
-        if not (backForDatabase.client is None):
-                backForDatabase.insert_documents([data])
-                ingestion_data = DataIngestionDate(id=data["id"], node_id=data["node_id"]).dict()
-                backForDatabase.insert_ingestion_date([ingestion_data])
-                return {"message":"BASE INSERER"}
-        else:
-            return {"message":"ERREUR INSERTION BASE"}
-
-    except json.JSONDecodeError:
-        print("Message reçu (non-JSON):", msg.value().decode('utf-8'))
-
-
-
-
-if(ENV == "LOCAL"):
-    # Kafka consumer configuration 
-    conf = {
-        'bootstrap.servers': KAFKA_BROKER,
-        'group.id': 'mon-groupe-consumer',
-        'auto.offset.reset': 'earliest', # param for reading from the beggining
-    }
-
-    consumer = Consumer(conf)
-    consumer.subscribe([KAFKA_TOPIC])
-
-    # Kafka Consumer in background
-    def kafka_consumer():
-        """ Fonction pour consommer les messages Kafka et les insérer dans MongoDB """
-        try:
-            while True:
-                messages = consumer.consume( timeout=5.0)
-                if not messages:
-                    continue  # passive waiting
-
-                for msg in messages:
-                    if msg.error():
-                        if msg.error().code() == KafkaError._PARTITION_EOF:
-                            print(f"Fin de partition {msg.topic()} [{msg.partition()}]")
-                        else:
-                            print(f"Erreur: {msg.error()}")
-                    else:
-                        return adding_data_from_kafka(msg)
-
-        except KeyboardInterrupt:
-            print("Arrêt du consumer Kafka")
-        finally:
-            consumer.close()
-    # Démarrer le consumer Kafka dans un thread
-    kafka_thread = threading.Thread(target=kafka_consumer, daemon=True)
-    kafka_thread.start()
-    
-    print("Consumer Kafka lancé en arrière-plan")
-
 
 
 
@@ -309,6 +221,10 @@ app = FastAPI()
 @app.get("/")
 def base():
     return {"message": "Client connecté !" if backForDatabase.client else "Client non connecté !"}
+
+@app.get("/hello_world")
+def hello_world():
+    return {"message": "Hello, world!"}
 
 @app.post("/add_data")
 def add_data(documents: List[DocumentModel]):
@@ -340,3 +256,84 @@ def delete_collection(collection_name: str):
     return result
 
 
+def adding_data_from_endpoint(documents):
+    if not backForDatabase.client or not backForDatabase.client.admin.command('ping'):
+        raise HTTPException(status_code=500, detail="Base de données non connectée")
+
+    if not documents:
+        return {"message": "Aucun document à insérer"}
+
+    try:
+        inserted_data = backForDatabase.insert_documents([doc.dict() for doc in documents])
+        ingestion_dates = [
+            DataIngestionDate(id=doc.id, node_id=doc.node_id, ingestion_date=datetime.utcnow().isoformat())
+            for doc in documents
+        ]
+        inserted_ingestion_date = backForDatabase.insert_ingestion_date([data.dict() for data in ingestion_dates])
+
+        return {
+            "message": "Données insérées",
+            "data": inserted_data,
+            "ingestion_data": inserted_ingestion_date
+        }
+    
+    except pymongo.errors.PyMongoError as e:
+        raise HTTPException(status_code=500, detail=f"Erreur MongoDB: {str(e)}")
+
+def adding_data_from_kafka(msg):
+    try:
+        data = json.loads(msg.value().decode('utf-8'))
+        print("Message reçu :", data)
+
+        # Insert in MongoDB
+        if not (backForDatabase.client is None):
+                response = backForDatabase.insert_documents([data])
+                ingestion_data = DataIngestionDate(id=data["id"], node_id=data["node_id"]).dict()
+                backForDatabase.insert_ingestion_date([ingestion_data])
+                return {"message":response}
+        else:
+            return {"message":"ERREUR INSERTION BASE"}
+
+    except json.JSONDecodeError:
+        print("Message reçu (non-JSON):", msg.value().decode('utf-8'))
+
+
+
+
+if(ENV == "LOCAL"):
+    # Kafka consumer configuration 
+    conf = {
+        'bootstrap.servers': KAFKA_BROKER,
+        'group.id': 'mon-groupe-consumer',
+        'auto.offset.reset': 'earliest', # param for reading from the beggining
+    }
+
+    consumer = Consumer(conf)
+    consumer.subscribe([KAFKA_TOPIC])
+
+    # Kafka Consumer in background
+    def kafka_consumer():
+        """ Fonction pour consommer les messages Kafka et les insérer dans MongoDB """
+        try:
+            while True:
+                messages = consumer.consume( timeout=5.0)
+                if not messages:
+                    continue
+                for msg in messages:
+                    if msg.error():
+                        if msg.error().code() == KafkaError._PARTITION_EOF:
+                            print(f"Fin de partition {msg.topic()} [{msg.partition()}]")
+                        else:
+                            print(f"Erreur: {msg.error()}")
+                    else:
+                        print(adding_data_from_kafka(msg))
+
+        except KeyboardInterrupt:
+            print("Arrêt du consumer Kafka")
+        finally:
+            consumer.close()
+    # Démarrer le consumer Kafka dans un thread
+    kafka_thread = threading.Thread(target=kafka_consumer, daemon=True)
+    kafka_thread.start()
+    
+    print("Consumer Kafka lancé en arrière-plan")
