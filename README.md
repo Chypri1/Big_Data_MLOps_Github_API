@@ -26,7 +26,7 @@ lancer un ```docker compose up --build``` en vérifiant que les ports:
 - 9092,
 - 27017 et sont libres
 
-aller dans le notebook prévu à la démo du projet
+aller dans le notebook prévu à la démo du projet (si besoin un notebook par folder est dispo pour tester chaque endpoint créé)
 Il faut savoir que certains composants comme api-base-mongo, api-request-github et la base mongodb étaient sur Azure. 
 Ces ressources ne sont plus accessible du aux credentials qui ont expirés.
 
