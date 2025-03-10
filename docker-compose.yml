@@ -42,28 +42,28 @@ services:
       ME_CONFIG_MONGODB_PORT: 27017
       ME_CONFIG_BASICAUTH: false
       
-  # zookeeper:
-  #   image: confluentinc/cp-zookeeper:latest
-  #   restart: always
-  #   environment:
-  #     ZOOKEEPER_CLIENT_PORT: 2181
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    restart: always
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
 
-  # kafka:
-  #   image: confluentinc/cp-kafka:latest
-  #   restart: always
-  #   depends_on:
-  #     - zookeeper
-  #   ports:
-  #     - "9092:9092"
-  #   environment:
-  #     KAFKA_BROKER_ID: 1
-  #     KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
-  #     KAFKA_LISTENERS: "LISTENER_LOCAL://0.0.0.0:9092,LISTENER_DOCKER://kafka:9093"
-  #     KAFKA_ADVERTISED_LISTENERS: "LISTENER_LOCAL://localhost:9092,LISTENER_DOCKER://kafka:9093"
-  #     KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "LISTENER_LOCAL:PLAINTEXT,LISTENER_DOCKER:PLAINTEXT"
-  #     KAFKA_INTER_BROKER_LISTENER_NAME: "LISTENER_DOCKER"
-  #     KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-  #     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    restart: always
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENERS: "LISTENER_LOCAL://0.0.0.0:9092,LISTENER_DOCKER://kafka:9093"
+      KAFKA_ADVERTISED_LISTENERS: "LISTENER_LOCAL://localhost:9092,LISTENER_DOCKER://kafka:9093"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "LISTENER_LOCAL:PLAINTEXT,LISTENER_DOCKER:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "LISTENER_DOCKER"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.20.2

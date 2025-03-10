@@ -3,13 +3,13 @@ channels:
   - defaults
 dependencies:
   - python=3.12
-  - numpy
-  - pandas
-  - scikit-learn
-  - pip
-  - seaborn
-  - matplotlib
-  - json
-  - requests
-  - pip:
-    - some_pip_package
+  - numpy=2.2.2
+  - pandas=2.2.3
+  - scikit-learn=1.6.1 
+  - pip=25.0 
+  - seaborn=0.13.2
+  - requests=2.32.3
+  - ipykernel=6.29.5 
+pip:
+    - matplotlib=3.10.0
+    - json
