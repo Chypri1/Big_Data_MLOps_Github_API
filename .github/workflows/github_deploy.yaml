@@ -32,22 +32,24 @@ name: Build and deploy an app to AKS
 on:
   push:
     branches: ["main"]
+    branches-ignore:
     paths: 
-      - '**/api-github/**'
-      - '**/api-base-fastapi/**'
+      - '**/api-request-github/**'
+      - '**/api-base-mongo/**'
       - '**/kafka-component/**'
+    paths-ignore:
   workflow_dispatch:
 
 env:
   AZURE_CONTAINER_REGISTRY: "AzureContainerRegistryMLopsMPT"
-  CONTAINER_NAME: "api-github-recup-data-auto-mpt"
+  CONTAINER_NAME: "api-request-github-recup-data-auto-mpt"
   RESOURCE_GROUP: "Projet_M2_MLOPS_MRO_PEN_TAN"
   #CLUSTER_NAME: "canada-central"
   #DEPLOYMENT_MANIFEST_PATH: "your-deployment-manifest-path"
 
 jobs:
   buildAndDeployGithub:
-    if: contains(github.event.head_commit.modified, 'api-github/')
+    if: contains(github.event.head_commit.modified, 'api-request-github/')
     permissions:
       contents: read
       id-token: write
@@ -67,14 +69,24 @@ jobs:
 
       # Builds and pushes an image up to your Azure Container Registry
       - name: Build Docker image
-        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/api-github:latest ./api-github
+        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/api-request-github:latest ./api-request-github
+
+      - name: Versioning
+        run: |
+          VERSION_FILE=./api-request-github/version.txt
+          if [ ! -f "$VERSION_FILE" ]; then
+            echo "0" > $VERSION_FILE
+          fi
+          VERSION=$(cat $VERSION_FILE)
+          NEW_VERSION=VERSION+1
+          echo "$NEW_VERSION" > $VERSION_FILE
 
       - name: Push Docker image
-        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-github:latest
+        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-request-github:latest
 
 
   buildAndDeployFastapi:
-    if: contains(github.event.head_commit.modified, 'api-base-fastapi/')
+    if: contains(github.event.head_commit.modified, 'api-base-mongo/')
     permissions:
       contents: read
       id-token: write
@@ -94,10 +106,20 @@ jobs:
 
       # Builds and pushes an image up to your Azure Container Registry
       - name: Build Docker image
-        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/api-fastapi:latest ./api-base-fastapi
+        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/api-base-mongo:latest ./api-base-mongo
 
+      - name: Versioning
+        run: |
+          VERSION_FILE=./api-base-mongo/version.txt
+          if [ ! -f "$VERSION_FILE" ]; then
+            echo "0" > $VERSION_FILE
+          fi
+          VERSION=$(cat $VERSION_FILE)
+          NEW_VERSION=VERSION+1
+          echo "$NEW_VERSION" > $VERSION_FILE
+          
       - name: Push Docker image
-        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-fastapi:latest
+        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/api-base-mongo:latest
 
 
   buildAndDeployKafka:
@@ -121,8 +143,19 @@ jobs:
 
       # Builds and pushes an image up to your Azure Container Registry
       - name: Build Docker image
-        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/kafka-image:latest ./kafkaimage
+        run: docker build -t ${{ secrets.AZURE_REGISTRY_URL }}/kafka-image:latest ./kafka-component
+      
+      - name: Versioning
+        run: |
+          VERSION_FILE=./kafka-component/version.txt
+          if [ ! -f "$VERSION_FILE" ]; then
+            echo "0" > $VERSION_FILE
+          fi
+          VERSION=$(cat $VERSION_FILE)
+          NEW_VERSION=VERSION+1
+          echo "$NEW_VERSION" > $VERSION_FILE
+          
       - name: Push Docker image
-        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/kafka-images:latest
+        run: docker push ${{ secrets.AZURE_REGISTRY_URL }}/kafka-image:latest
 
 
