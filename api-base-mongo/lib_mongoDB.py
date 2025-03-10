@@ -209,55 +209,6 @@ class BackForDatabase:
             logging.error(f"Erreur lors de la suppression de la collection '{collection_name}': {e}", exc_info=True)
             return {"error": str(e)}
 
-
-
-
-    
-    
-# Initialisation avec l'URI Cosmos DB
-backForDatabase = BackForDatabase(connection_uri=MONGO_URI)
-backForDatabase.connect_to_mongo()
-
-# fastapi and endpoint creations, instanciations
-app = FastAPI()
-
-@app.get("/")
-def base():
-    return {"message": "Client connecté !" if backForDatabase.client else "Client non connecté !"}
-
-@app.get("/hello_world")
-def hello_world():
-    return {"message": "Hello, world!"}
-
-@app.post("/add_data")
-def add_data(documents: List[DocumentModel]):
-    return adding_data_from_endpoint(documents)
-
-@app.get("/show_data")
-def show_data(page: int = 1, page_size: int = 10):
-    """ Afficher les données avec pagination """
-    return backForDatabase.display_documents(page, page_size)
-
-@app.get("/count")
-def count_documents():
-    return backForDatabase.collection.count_documents({})
-
-@app.get("/get_ingestion_date")
-def get_ingestion_date():
-     return backForDatabase.display_ingestion_data()
-
-@app.delete("/delete_collection/{collection_name}")
-def delete_collection(collection_name: str):
-    if backForDatabase.client is None:
-        raise HTTPException(status_code=500, detail="Base de données non connectée")
-    
-    result = backForDatabase.delete_collection(collection_name)
-    
-    if "error" in result:
-        raise HTTPException(status_code=500, detail=result["error"])
-    
-    return result
-
 # Connexion et insertion des données dans la BDD avec ajout de la date d'ingestion
 def adding_data_from_endpoint(documents):
     if not backForDatabase.client or not backForDatabase.client.admin.command('ping'):
@@ -342,4 +293,50 @@ if(ENV == "LOCAL"):
     kafka_thread.start()
     
     print("Consumer Kafka lancé en arrière-plan")
+
+
+
+
+    
+    
+# Initialisation avec l'URI Cosmos DB
+backForDatabase = BackForDatabase(connection_uri=MONGO_URI)
+backForDatabase.connect_to_mongo()
+
+# fastapi and endpoint creations, instanciations
+app = FastAPI()
+
+@app.get("/")
+def base():
+    return {"message": "Client connecté !" if backForDatabase.client else "Client non connecté !"}
+
+@app.post("/add_data")
+def add_data(documents: List[DocumentModel]):
+    return adding_data_from_endpoint(documents)
+
+@app.get("/show_data")
+def show_data(page: int = 1, page_size: int = 10):
+    """ Afficher les données avec pagination """
+    return backForDatabase.display_documents(page, page_size)
+
+@app.get("/count")
+def count_documents():
+    return backForDatabase.collection.count_documents({})
+
+@app.get("/get_ingestion_date")
+def get_ingestion_date():
+     return backForDatabase.display_ingestion_data()
+
+@app.delete("/delete_collection/{collection_name}")
+def delete_collection(collection_name: str):
+    if backForDatabase.client is None:
+        raise HTTPException(status_code=500, detail="Base de données non connectée")
+    
+    result = backForDatabase.delete_collection(collection_name)
+    
+    if "error" in result:
+        raise HTTPException(status_code=500, detail=result["error"])
+    
+    return result
+
 

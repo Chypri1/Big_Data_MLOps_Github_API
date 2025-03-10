@@ -17,8 +17,9 @@ load_dotenv()
 mlflow.set_tracking_uri(os.getenv("URI_MLFLOW"))
 client = MlflowClient()
 
-# Fonction pour charger le modèle et ses labels
+
 def load_model(name="gradient_boosting", version=None):
+    """Charge le modèle et récupère les labels"""
     model_version = client.get_model_version(name, str(version)) if version else client.get_latest_versions(name, stages=["Production"])[0]
     model = mlflow.sklearn.load_model(model_version.source)
     
@@ -37,6 +38,7 @@ model_lock = Lock()
 
 # Préparer les données
 def prepare_data(df):
+    """Change les données pour avoir les features souhaitées"""
     df = pd.DataFrame(df).dropna(subset=["language", "created_at"])
     df["created_at"] = pd.to_datetime(df["created_at"])
     df["year"], df["month"], df["week"], df["day"] = df["created_at"].dt.year, df["created_at"].dt.month, df["created_at"].dt.isocalendar().week, df["created_at"].dt.day
@@ -60,12 +62,13 @@ class InputData(BaseModel):
 # Endpoint de prédiction
 @app.post("/predict")
 async def predict(input_data: InputData):
+    """Prédiction du modèle en donnant le nom, la version du modèle et les données"""
     model_name, model_version, data = (
         input_data.model_name,
         input_data.model_version if input_data.model_version else None,
         input_data.data
     )
-    with model_lock:
+    with model_lock: #Empêche de charger plusieurs modèles en même temps
         model, labels = load_model(model_name, model_version)
     data = prepare_data(data)
     predictions = model.predict_proba(data)

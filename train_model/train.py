@@ -27,6 +27,7 @@ client = MlflowClient()
 
 
 def get_model(model_name, **kwargs):
+    """Récupère le modèle"""
     if model_name == "gradient_boosting":
         return GradientBoostingModel(**kwargs)
     elif model_name == "random_forest":
@@ -107,7 +108,7 @@ def train_log(df, model_name="gradient_boosting", epochs=10, batch_size=32, lr=0
 
     return acc, latest_version
 
-# Initialiser FastAPI
+# Initialise FastAPI
 app = FastAPI()
 
 
@@ -120,6 +121,9 @@ class InputData(BaseModel):
 
 @app.post("/train")
 def train(inputData: InputData):
+    """Entraine le modèle choisi avec les données
+    Renvoie le nom du modèle, sa version et son accuracy
+    """
     model_name, epochs, batch_size, metrics, data = (
         inputData.model_name,
         inputData.epochs,
@@ -137,11 +141,11 @@ def train(inputData: InputData):
         n_estimators=int(metrics["n_estimators"])
     )
 
-    return (f"Modèle {model_name} Version : {version} enregistré Modèle entraîné avec une accuracy de {acc}")
+    return model_name,version, acc
 
 @app.post("/model-stage")
-def production(model_name: str, version: str, stage: str):
-    """Met en production la version du modèle donnée en paramètre"""
+def change_staging(model_name: str, version: str, stage: str):
+    """Change le stage de la version du modèle donnée en paramètre"""
     try:
         client.transition_model_version_stage(
             name=model_name,
