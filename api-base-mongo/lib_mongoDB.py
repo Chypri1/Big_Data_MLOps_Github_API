@@ -20,11 +20,13 @@ KAFKA_BROKER = os.getenv("KAFKA_BROKER")
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC")
 ENV = os.getenv("ENV")
 
+# Modèle de données d'un propriétaire de repo
 class OwnerModel(BaseModel):
     login: str
     id: int
     html_url: str
 
+# Modèle de données d'un repo
 class DocumentModel(BaseModel):
     id: int
     node_id: str
@@ -43,12 +45,14 @@ class DocumentModel(BaseModel):
     stargazers_count: int
     watchers_count: int
     open_issues_count: int
-    
+
+# Modèle de données pour une date d'ingestion
 class DataIngestionDate (BaseModel):
     id: int
     node_id: str
     ingestion_date: str = datetime.utcnow().isoformat()
 
+# Classe pour la gestion de la BDD
 class BackForDatabase:
     def __init__(self, connection_uri, database_name="my_database", collection_name="my_collection", collection_data_ingestion_name = "my_ingestion_data_collection"):
         self.connection_uri = connection_uri
@@ -79,9 +83,9 @@ class BackForDatabase:
     def insert_documents(self, documents: List[dict]):
         """ Insère plusieurs documents dans MongoDB et recrée la collection si elle n'existe pas """
         if self.collection is None or self.collection_name not in self.db.list_collection_names():
-            print(f"⚠️ Collection '{self.collection_name}' absente. Création en cours...")
+            print(f"Collection '{self.collection_name}' absente. Création en cours...")
             self.collection = self.db[self.collection_name]  # Réassignation de la collection
-            print(f"✅ Collection '{self.collection_name}' créée avec succès.")
+            print(f"Collection '{self.collection_name}' créée avec succès.")
 
         try:
             existing_names = {doc["name"] for doc in self.collection.find({}, {"name": 1})}
@@ -90,12 +94,12 @@ class BackForDatabase:
             if documents_to_insert:
                 result = self.collection.insert_many(documents_to_insert)
                 inserted_ids = [str(_id) for _id in result.inserted_ids]  # Convertir ObjectId en string
-                return {"inserted_ids": inserted_ids, "message": "Insertion réussie ✅"}
+                return {"inserted_ids": inserted_ids, "message": "Insertion réussie"}
 
             return {"message": "Aucun nouveau document à insérer."}
 
         except Exception as e:
-            print(f"❌ Erreur lors de l'insertion : {e}")
+            print(f"Erreur lors de l'insertion : {e}")
             import traceback
             traceback.print_exc()
             return {"error": str(e)}
@@ -205,6 +209,7 @@ class BackForDatabase:
             logging.error(f"Erreur lors de la suppression de la collection '{collection_name}': {e}", exc_info=True)
             return {"error": str(e)}
 
+# Connexion et insertion des données dans la BDD avec ajout de la date d'ingestion
 def adding_data_from_endpoint(documents):
     if not backForDatabase.client or not backForDatabase.client.admin.command('ping'):
         raise HTTPException(status_code=500, detail="Base de données non connectée")
@@ -229,6 +234,7 @@ def adding_data_from_endpoint(documents):
     except pymongo.errors.PyMongoError as e:
         raise HTTPException(status_code=500, detail=f"Erreur MongoDB: {str(e)}")
 
+# Récupération de données dans kafka et insertion dans la base
 def adding_data_from_kafka(msg):
     try:
         data = json.loads(msg.value().decode('utf-8'))

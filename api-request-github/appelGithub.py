@@ -20,12 +20,13 @@ KAFKA_BROKER = os.getenv("KAFKA_BROKER")
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC")
 ENV = os.getenv("ENV")
 
+# Modèle de données d'un propriétaire de repo
 class OwnerModel(BaseModel):
     login: str
     id: int
     html_url: str
 
-
+# Modèle de données d'un repo
 class DocumentModel(BaseModel):
     id: int
     node_id: str
@@ -54,6 +55,17 @@ class AppelGithub:
         self.uri_mongo_db = uri_mongo_db
         self.api_key = api_key
 
+    ''' Récupérer les répo pour une date donnée
+        - IN:
+            self: la classe AppelGithub
+            year: année de création, paramètre obligatoire
+            month: numéro du mois en format double digit
+            day: numéro du jour en format double digit
+            max_pages: nombre maximum de pages à récupérer, 0 = pas de limite
+        
+        - OUT:
+            Liste de repos, vide si introuvable
+    '''
     def get_repos_created_in_day_multipages(self, year, month="01", day="01", max_pages=0):
         query = f"created:{year}-{month}-{day}"
         params = {"q": query, "per-page": 30}
@@ -72,9 +84,10 @@ class AppelGithub:
                 res.extend(repos_data.get("items", []))
                 self.pickle_this(res, f"repos_{year}_{month}")
 
-            return res
-        return []
+        return res
 
+    # Appelle l'api github et retourne la réponse si elle est positive. 
+    # Cette méthode génère de l'attente active en attendant dans le cas où nous aurions dépassé notre taux de requetage 
     def get_call(self, paths, params=None, header=None):
         url = f"{self.base_url}/{paths}"
         response = requests.get(url, params=params, headers=header)
@@ -89,6 +102,7 @@ class AppelGithub:
             print(f"Erreur {response.status_code}: {response.json().get('message', 'Erreur inconnue')}")
             return {}
 
+    # Une paire de méthodes pour encapsuler des appels à pickles et les ouvertures/fermetures de fichiers qui vont avec
     def pickle_this(self, target, name, file_path=save_folder):
         path = os.path.join(file_path, name)
         with open(path, "wb") as file:
@@ -105,9 +119,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-# API for interact with component
+# API pour intéragir avec les composants
 app = FastAPI()
 
+# Endpoints
 @app.get("/")
 def base():
     return {"message": "Bienvenue sur l'API GitHub"}
@@ -125,9 +140,10 @@ def jour_récup_auto(year: int, month: int, day: int):
 def start_recup_auto():
     return send_to_threading
 
-# function with thread for using fastapi and being able to do some auto recuperations
+# Les méthodes ci-dessous permettent l'ingestion automatique par multithreading
 executor = ThreadPoolExecutor(max_workers=1)
 
+# Execution d'un thread
 def send_to_threading():
     future = executor.submit(recup_auto)
 
@@ -136,6 +152,7 @@ def send_to_threading():
     else:
         return {"message": "Récupération démarrée en arrière-plan."}
 
+# Ingestion automatique par multithreading
 def recup_auto():
     try:
         logger.info("Démarrage de la récupération...")
@@ -143,6 +160,7 @@ def recup_auto():
         months = [f"{i:02d}" for i in range(1, 13)]
         res = []
         year = 2024
+        # Récupérer 25 pages de 30 répos pour chaque jour de 2010 à 2024
         for year in range(2024, 2010):
             for month in months:
                 for day in range(1, 29):
@@ -170,7 +188,7 @@ def recup_auto():
         logger.error(f"Erreur dans la récupération : {e}")
 
 
-# Callback function to know the sending's state
+# Fonction pour connaitre l'état du message
 def delivery_report(err, msg):
     """Callback pour savoir si le message a été envoyé avec succès"""
     if err is not None:
@@ -179,7 +197,7 @@ def delivery_report(err, msg):
         return (f"Message envoyé à {msg.topic()} [{msg.partition()}] avec offset {msg.offset()}")
 
 
-# Send to kafka with this function  and conf
+# Envoyer à kafka
 conf = {
     "bootstrap.servers": KAFKA_BROKER,
     "security.protocol": "PLAINTEXT",
