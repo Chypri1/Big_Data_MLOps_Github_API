@@ -71,11 +71,11 @@ services:
     ports:
       - "8083:8083"
     environment:
-      - MLFLOW_TRACKING_URI=http://localhost:8083
+      - MLFLOW_TRACKING_URI=http://mlflow:8083
       - MLFLOW_ARTIFACT_URI=./mlruns
     command: ["mlflow", "server", "--host", "0.0.0.0", "--port", "8083", "--artifacts-destination", "/mlruns"]
     volumes:
-      - ./train_model/mlruns:/mlruns
+      - ./mlruns:/mlruns
 
   model_serving:
     restart: always
@@ -88,7 +88,7 @@ services:
       - mlflow
     volumes:
       - ./model_serving/app.py:/app/app.py 
-      - ./train_model/mlruns:/mlruns
+      - ./mlruns:/mlruns
 
   train_model:
     restart: always
@@ -99,3 +99,6 @@ services:
       - "8085:8085"
     depends_on:
       - mlflow
+    volumes:
+      - ./train_model/train.py:/app/train.py 
+      - ./mlruns:/mlruns   

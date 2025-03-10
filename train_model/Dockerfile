@@ -15,4 +15,4 @@ COPY . .
 EXPOSE 8085
 
 # Lancer l'API avec Uvicorn
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8085"]
+CMD ["uvicorn", "train:app", "--host", "0.0.0.0", "--port", "8085"]
