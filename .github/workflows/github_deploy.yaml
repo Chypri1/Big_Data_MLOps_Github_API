@@ -66,7 +66,7 @@ jobs:
       
       - name: Versioning
         run: |
-          VERSION_FILE=./api-request-github/version.txt
+          VERSION_FILE=../../api-request-github/version.txt
           if [ ! -f "$VERSION_FILE" ]; then
             echo "0" > $VERSION_FILE
           fi
@@ -78,10 +78,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          pwd
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add ./api-request-github/version.txt
+          git add ../../api-request-github/version.txt
           git commit -m "Update version to $new_version"
           git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }} HEAD:main
       
@@ -114,7 +113,7 @@ jobs:
           MONGO_URI: "${{ vars.MONGO_URI }}"
       - name: Versioning
         run: |
-          VERSION_FILE=./api-base-mongo/version.txt
+          VERSION_FILE=../../api-base-mongo/version.txt
           if [ ! -f "$VERSION_FILE" ]; then
             echo "0" > $VERSION_FILE
           fi
@@ -124,11 +123,11 @@ jobs:
 
       - name: Commit version file
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add ./api-base-mongo/version.txt
+          git add ../../api-base-mongo/version.txt
           git commit -m "Update version to $new_version"
           git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }} HEAD:main
       
