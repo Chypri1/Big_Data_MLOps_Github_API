@@ -32,9 +32,6 @@ name: Build and deploy an app to AKS
 on:
   push:
     branches: ["main"]
-    paths: 
-      - '**/api-request-github/**'
-  workflow_dispatch:
 
 env:
   AZURE_CONTAINER_REGISTRY: "AzureContainerRegistryMLopsMPT"
